@@ -1,10 +1,6 @@
 // Dunamis Fit — cobrança automática via WhatsApp Cloud API
 // Executado diariamente pelo Vercel Cron. Segredos ficam somente nas variáveis de ambiente.
 
-function json(data, status = 200) {
-  return { status, headers: { 'content-type': 'application/json; charset=utf-8' }, body: JSON.stringify(data) };
-}
-
 function normalizePhone(value) {
   let phone = String(value || '').replace(/\D/g, '');
   if (!phone) return '';
@@ -28,8 +24,7 @@ function currentMonthRange(today) {
 }
 
 async function supabaseRequest(path, options = {}) {
-  const url = `${process.env.SUPABASE_URL}${path}`;
-  const response = await fetch(url, {
+  const response = await fetch(`${process.env.SUPABASE_URL}${path}`, {
     ...options,
     headers: {
       apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -45,7 +40,7 @@ async function supabaseRequest(path, options = {}) {
   return data;
 }
 
-async function sendTemplate(to, name, amount, dueDate) {
+async function sendTemplate(to, amount, dueDate) {
   const version = process.env.WHATSAPP_API_VERSION || 'v26.0';
   const template = process.env.WHATSAPP_TEMPLATE_LATE || 'dunamis_mensalidade_atrasada';
   const language = process.env.WHATSAPP_TEMPLATE_LANG || 'pt_BR';
@@ -107,8 +102,7 @@ module.exports = async function handler(request, response) {
     for (const student of students || []) {
       const profile = profileMap.get(student.id);
       const dueDay = Number(student.due_day || 1);
-      const lastValidDay = daysInMonth(year, month);
-      const effectiveDueDay = Math.min(dueDay, lastValidDay);
+      const effectiveDueDay = Math.min(dueDay, daysInMonth(year, month));
       if (day <= effectiveDueDay) { skipped++; continue; }
 
       const phone = normalizePhone(profile?.phone);
