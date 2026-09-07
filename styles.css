@@ -1,1 +1,41 @@
 *{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;color:#171717}button,input,select{font:inherit}.login{min-height:100vh;display:grid;grid-template-columns:1.2fr 1fr;background:#fff}.hero{padding:56px;display:flex;flex-direction:column;justify-content:flex-end;min-height:100vh;background:linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.45)),url("https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1400&q=80") center/cover;color:#fff}.brand{font-weight:900;font-size:28px;color:#ff6500}.hero h1{font-size:52px;line-height:.95;margin:18px 0}.hero h1 span{color:#ff6500}.hero p{max-width:620px;font-size:18px;line-height:1.5}.login-panel{display:flex;align-items:center;justify-content:center;padding:35px}.card{width:min(440px,100%);background:#fff}.card h2{font-size:38px;margin:0 0 8px}.muted{color:#777}.field{margin:20px 0}.field label{display:block;font-weight:700;margin-bottom:8px}.field input,.field select{width:100%;padding:14px;border:1px solid #ddd;border-radius:10px}.btn{border:0;border-radius:10px;padding:14px 18px;font-weight:800;cursor:pointer}.primary{background:#ff6500;color:#fff;width:100%}.demo{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}.demo button{background:#fff;border:1px solid #ddd;text-align:left}.demo strong{display:block}.shell{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.sidebar{background:#151515;color:#fff;padding:24px 16px}.sidebar .brand{font-size:22px;margin-bottom:35px}.nav button{display:block;width:100%;text-align:left;background:transparent;color:#ccc;border:0;padding:13px 14px;border-radius:9px;cursor:pointer;margin:4px 0}.nav button.active,.nav button:hover{background:#ff6500;color:#fff}.logout{margin-top:35px;width:100%;background:#292929;color:#fff}.main{padding:28px;overflow:auto}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}.top h1{margin:0;font-size:30px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.stat,.panel{background:#fff;border:1px solid #eee;border-radius:14px;padding:20px;box-shadow:0 4px 18px rgba(0,0,0,.04)}.stat small{color:#777}.stat b{display:block;font-size:28px;margin-top:8px}.panel{margin-top:18px}.panel h3{margin-top:0}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:13px 8px;border-bottom:1px solid #eee;text-align:left}.badge{display:inline-block;padding:5px 9px;border-radius:20px;font-size:12px;font-weight:700}.paid{background:#e8f7ee;color:#19733b}.pending{background:#fff4df;color:#9b6200}.late{background:#ffe8e8;color:#a11b1b}.actions{display:flex;gap:8px}.secondary{background:#eee}.danger{background:#ffe5e5;color:#a11b1b}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.empty{padding:30px;text-align:center;color:#777}.student-card{max-width:650px}.notice{padding:14px;border-radius:10px;background:#fff4df;border-left:4px solid #ff6500;margin:12px 0}.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px}.modal .card{padding:25px;border-radius:14px;box-shadow:0 15px 50px rgba(0,0,0,.2)}@media(max-width:850px){.login{grid-template-columns:1fr}.hero{display:none}.shell{grid-template-columns:1fr}.sidebar{position:relative}.grid{grid-template-columns:1fr 1fr}.main{padding:18px}}@media(max-width:520px){.grid,.form-grid{grid-template-columns:1fr}.demo{grid-template-columns:1fr}.top{gap:12px;align-items:flex-start;flex-direction:column}}
+
+/* V4 — painel visual aprimorado */
+.main{background:linear-gradient(180deg,#f7f7f7 0%,#f1f1f1 100%)}
+.top{align-items:flex-start;margin-bottom:24px}
+.top h1{font-size:34px;letter-spacing:-1px}
+.top .muted{font-size:15px}
+.grid{gap:18px}
+.stat{border:1px solid #ececec;box-shadow:0 8px 24px rgba(0,0,0,.05);transition:transform .2s ease,box-shadow .2s ease}
+.stat:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.08)}
+.stat small{display:block}
+.stat b{font-size:30px;margin-top:7px}
+.panel{border:1px solid #e8e8e8;box-shadow:0 10px 30px rgba(0,0,0,.05);border-radius:18px}
+.panel h3{font-size:20px}
+.badge{padding:6px 10px;border-radius:999px;font-weight:700}
+.dashboard-grid{display:grid;grid-template-columns:1.45fr .85fr;gap:18px;margin-top:18px}
+.dashboard-grid .panel{margin:0}
+.quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.quick-actions .btn{margin:0;width:100%}
+.progress{height:9px;background:#eee;border-radius:999px;overflow:hidden;margin-top:9px}
+.progress>span{display:block;height:100%;background:#ff6a00;border-radius:999px}
+.metric-row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #eee}
+.metric-row:last-child{border-bottom:0}
+.metric-row strong{font-size:17px}
+.student-hero{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.avatar{width:64px;height:64px;border-radius:18px;background:#ff6a00;color:white;display:grid;place-items:center;font-size:28px;font-weight:800;box-shadow:0 8px 20px rgba(255,106,0,.25)}
+.student-hero h2{margin:0;font-size:25px}
+.student-hero p{margin:4px 0 0;color:#777}
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.profile-card{background:#fff;border:1px solid #eee;border-radius:16px;padding:18px;box-shadow:0 8px 24px rgba(0,0,0,.04)}
+.profile-card .label{font-size:12px;color:#777;text-transform:uppercase;letter-spacing:.5px}
+.profile-card .value{font-size:24px;font-weight:800;margin-top:6px}
+.highlight{background:linear-gradient(135deg,#171717,#292929);color:#fff}
+.highlight .label{color:#bbb}
+.highlight .muted{color:#bbb}
+.evolution-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.change-up,.change-down{font-weight:800;font-size:13px;margin-top:6px}
+.change-down{color:#16803c}.change-up{color:#b42318}
+.table tr:hover td{background:#fafafa}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:900px){.dashboard-grid{grid-template-columns:1fr}.profile-grid{grid-template-columns:1fr}.evolution-summary{grid-template-columns:1fr}.top{flex-direction:column}.sidebar{width:210px}}

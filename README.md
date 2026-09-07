@@ -20,3 +20,12 @@ MVP do aplicativo de gestão da Dunamis Fit.
 - Aluno: ana@aluno.com / aluno123
 
 Esta versão ainda usa dados locais no navegador. Banco de dados real, autenticação segura, notificações automáticas e integração oficial com WhatsApp serão adicionados em etapas posteriores.
+
+## Versão 3
+- Histórico de avaliações sem duplicações
+- Gráfico visual de evolução do peso
+
+## Versão 4
+- Dashboard administrativo ampliado com indicadores financeiros e atalhos
+- Área do aluno redesenhada com cartões de perfil e desenvolvimento
+- Melhorias visuais, responsividade e destaque para evolução
