@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
 
     let uid = id || null;
     if (uid) {
-      const update = { email, user_metadata: { full_name: name } };
+      const update = { email, email_confirm: true, user_metadata: { full_name: name } };
       if (password) update.password = password;
       const ur = await api(`/auth/v1/admin/users/${encodeURIComponent(uid)}`, { method: 'PUT', body: JSON.stringify(update) });
       const ud = await ur.json();
