@@ -24,13 +24,19 @@ module.exports = async (req, res) => {
     if (!pr.ok || profiles?.[0]?.role !== 'admin') return res.status(403).json({ error: 'Somente o administrador pode gerenciar alunos.' });
 
     const body = req.body || {};
-    const { id, name, birth, email, password, phone, plan, value, due, start, paymentMethod, weight, height, status } = body;
+    const { id, name, birth, email, password, phone, plan, value, due, start, paymentMethod, weight, height } = body;
     if (!name || !email || !plan || !paymentMethod) return res.status(400).json({ error: 'Dados obrigatórios ausentes.' });
     if (!id && (!password || password.length < 6)) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
     if (id && password && password.length < 6) return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
 
     let uid = id || null;
+    let previousStudent = null;
     if (uid) {
+      const sr = await api(`/rest/v1/students?id=eq.${encodeURIComponent(uid)}&select=status,plan,monthly_value,due_day,start_date,payment_method`);
+      const students = await sr.json();
+      if (!sr.ok) throw new Error('Não foi possível consultar os dados atuais do aluno.');
+      previousStudent = students?.[0] || null;
+
       const update = { email, email_confirm: true, user_metadata: { full_name: name } };
       if (password) update.password = password;
       const ur = await api(`/auth/v1/admin/users/${encodeURIComponent(uid)}`, { method: 'PUT', body: JSON.stringify(update) });
@@ -47,12 +53,20 @@ module.exports = async (req, res) => {
     const pe = await api('/rest/v1/profiles?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, role: 'student', full_name: name, email, phone: phone || null, birth_date: birth || null }) });
     if (!pe.ok) throw new Error('Não foi possível salvar o perfil do aluno.');
 
-    const se = await api('/rest/v1/students?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, plan, monthly_value: Number(value) || 0, due_day: Math.min(Math.max(Number(due) || 10, 1), 31), start_date: start || null, payment_method: paymentMethod, status: status || 'pending' }) });
+    const preservedStatus = previousStudent?.status || 'pending';
+    const se = await api('/rest/v1/students?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, plan, monthly_value: Number(value) || 0, due_day: Math.min(Math.max(Number(due) || 10, 1), 31), start_date: start || null, payment_method: paymentMethod, status: preservedStatus }) });
     if (!se.ok) throw new Error('Não foi possível salvar os dados da mensalidade.');
 
     if (weight && height) {
-      const ee = await api('/rest/v1/evaluations', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ student_id: uid, evaluation_date: new Date().toISOString().slice(0, 10), weight: Number(weight), height: Number(height) }) });
-      if (!ee.ok) throw new Error('Não foi possível salvar a avaliação física.');
+      const er = await api(`/rest/v1/evaluations?student_id=eq.${encodeURIComponent(uid)}&select=weight,height&order=evaluation_date.desc&limit=1`);
+      const latest = await er.json();
+      if (!er.ok) throw new Error('Não foi possível consultar a última avaliação.');
+      const last = latest?.[0];
+      const changed = !last || Number(last.weight) !== Number(weight) || Number(last.height) !== Number(height);
+      if (changed) {
+        const ee = await api('/rest/v1/evaluations', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ student_id: uid, evaluation_date: new Date().toISOString().slice(0, 10), weight: Number(weight), height: Number(height) }) });
+        if (!ee.ok) throw new Error('Não foi possível salvar a avaliação física.');
+      }
     }
 
     return res.status(200).json({ ok: true, id: uid });
