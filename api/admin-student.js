@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
     if (!pr.ok || profiles?.[0]?.role !== 'admin') return res.status(403).json({ error: 'Somente o administrador pode gerenciar alunos.' });
 
     const body = req.body || {};
-    const { id, name, birth, email, password, phone, plan, value, due, start, paymentMethod, weight, height } = body;
+    const { id, name, birth, email, password, phone, plan, value, due, start, paymentMethod, weight, height, status } = body;
     if (!name || !email || !plan || !paymentMethod) return res.status(400).json({ error: 'Dados obrigatórios ausentes.' });
     if (!id && (!password || password.length < 6)) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
     if (id && password && password.length < 6) return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
@@ -47,7 +47,7 @@ module.exports = async (req, res) => {
     const pe = await api('/rest/v1/profiles?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, role: 'student', full_name: name, email, phone: phone || null, birth_date: birth || null }) });
     if (!pe.ok) throw new Error('Não foi possível salvar o perfil do aluno.');
 
-    const se = await api('/rest/v1/students?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, plan, monthly_value: Number(value) || 0, due_day: Math.min(Math.max(Number(due) || 10, 1), 31), start_date: start || null, payment_method: paymentMethod, status: 'pending' }) });
+    const se = await api('/rest/v1/students?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, plan, monthly_value: Number(value) || 0, due_day: Math.min(Math.max(Number(due) || 10, 1), 31), start_date: start || null, payment_method: paymentMethod, status: status || 'pending' }) });
     if (!se.ok) throw new Error('Não foi possível salvar os dados da mensalidade.');
 
     if (weight && height) {
