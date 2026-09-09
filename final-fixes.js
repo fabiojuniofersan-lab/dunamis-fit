@@ -27,7 +27,7 @@ window.login=function(){
           <input id="pass" type="password" autocomplete="current-password" placeholder="Sua senha" onkeydown="if(event.key==='Enter')doLogin()">
         </div>
         <button class="login-integrated-btn" onclick="doLogin()">Entrar <span>→</span></button>
-        <button class="login-integrated-forgot" type="button" onclick="alert('A recuperação de senha será disponibilizada nesta etapa.')">Esqueci minha senha</button>
+        <button class="login-integrated-forgot" type="button" onclick="resetPassword()">Esqueci minha senha</button>
       </div>
     </div>
     <style>
@@ -46,3 +46,7 @@ window.login=function(){
       @media(max-width:520px){.login-integrated{min-height:100svh}.login-integrated-bg{object-position:58% center}.login-integrated-form{width:78%;right:6%;top:60%}.login-integrated-field input{padding:10px 3px}.login-integrated-btn{padding:12px;font-size:15px}}
     </style>`;
 };
+
+// O app.js chama a função login original antes deste arquivo ser carregado.
+// Renderiza novamente agora, já usando a versão integrada.
+window.login();
