@@ -4,6 +4,6 @@
   window.dunamisSupabase=window.supabase.createClient(
     window.DUNAMIS_SUPABASE_URL,
     window.DUNAMIS_SUPABASE_PUBLISHABLE_KEY,
-    {auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}}
+    {auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true,skipAutoInitialize:true}}
   );
 })();
