@@ -20,10 +20,18 @@
   }
   window.refreshCloudData=refreshCloudData;
   async function loadSession(){const {data:sd}=await sb.auth.getSession();if(!sd.session){current=null;return false}const {data:p,error}=await sb.from('profiles').select('*').eq('id',sd.session.user.id).maybeSingle();if(error||!p){await sb.auth.signOut();current=null;return false}current={email:p.email,name:p.full_name,role:p.role==='admin'?'admin':'aluno',studentId:sd.session.user.id};try{await refreshCloudData()}catch(e){console.error(e)}page=current.role==='admin'?'dashboard':'meu';return true}
-  async function handleRecovery(){
-    if(!location.hash.includes('type=recovery'))return false;
-    const {data:sd}=await sb.auth.getSession();
-    if(!sd.session){alert('O link de recuperação expirou ou já foi utilizado. Solicite um novo e-mail de recuperação.');return true}
+  let recoveryHandled=false;
+  async function handleRecovery(force=false){
+    if(recoveryHandled)return true;
+    if(!force&&!location.hash.includes('type=recovery'))return false;
+    recoveryHandled=true;
+    await new Promise(resolve=>setTimeout(resolve,1200));
+    let {data:sd}=await sb.auth.getSession();
+    if(!sd.session){
+      await new Promise(resolve=>setTimeout(resolve,1800));
+      ({data:sd}=await sb.auth.getSession());
+    }
+    if(!sd.session){recoveryHandled=false;alert('O link de recuperação expirou ou já foi utilizado. Solicite um novo e-mail de recuperação.');return true}
     let password=prompt('Defina uma nova senha para o Dunamis Fit (mínimo de 6 caracteres):');
     if(password===null){await sb.auth.signOut();history.replaceState({},document.title,location.pathname);return true}
     password=String(password);
@@ -37,6 +45,7 @@
     alert('Senha alterada com sucesso! Agora entre com seu e-mail e a nova senha.');
     return true;
   }
+  sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')setTimeout(()=>handleRecovery(true),0)});
   window.doLogin=async function(){const e=String(document.getElementById('email')?.value||'').trim().toLowerCase(),p=String(document.getElementById('pass')?.value||'');if(!e||!p)return alert('Informe e-mail e senha.');const b=document.querySelector('.login-panel .btn.primary');if(b){b.disabled=true;b.textContent='Entrando...'}const {data:a,error}=await sb.auth.signInWithPassword({email:e,password:p});if(error){if(b){b.disabled=false;b.textContent='Entrar →'}if(error.message?.toLowerCase().includes('confirm'))return alert('Este e-mail ainda não foi confirmado.');return alert('E-mail ou senha incorretos')}const {data:profile,error:pe}=await sb.from('profiles').select('*').eq('id',a.user.id).maybeSingle();if(pe||!profile){await sb.auth.signOut();return alert('Perfil do usuário não encontrado.')}current={email:profile.email,name:profile.full_name,role:profile.role==='admin'?'admin':'aluno',studentId:a.user.id};try{await refreshCloudData()}catch(err){console.error(err)}page=current.role==='admin'?'dashboard':'meu';render()};
   window.logout=async function(){await sb.auth.signOut();current=null;data={students:[],payments:[],notifications:[]};login()};
   window.resetPassword=async function(){const e=String(document.getElementById('email')?.value||'').trim().toLowerCase();if(!e)return alert('Informe seu e-mail primeiro.');const {error}=await sb.auth.resetPasswordForEmail(e,{redirectTo:location.origin+location.pathname});if(error)return alert('Não foi possível enviar o e-mail de recuperação.');alert('Se o e-mail estiver cadastrado, enviaremos as instruções para redefinir a senha.')};
