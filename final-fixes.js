@@ -13,38 +13,38 @@
 })();
 
 // Tela inicial: usa a arte completa como interface visual.
-// Os campos e botões abaixo são apenas áreas funcionais transparentes sobre a arte,
-// evitando duplicar o formulário que já está desenhado na imagem.
+// Os elementos abaixo são apenas áreas funcionais transparentes sobre a arte.
 window.login=function(){
   app.innerHTML=`
     <div class="login-integrated">
       <img class="login-integrated-bg" src="dunamis-fit-abertura.png" alt="Dunamis Fit - Força que vem do alto">
       <div class="login-hitbox">
-        <input id="email" class="login-hitbox-email" type="email" autocomplete="username" aria-label="E-mail">
-        <input id="pass" class="login-hitbox-pass" type="password" autocomplete="current-password" aria-label="Senha" onkeydown="if(event.key==='Enter')doLogin()">
+        <input id="email" class="login-hitbox-email" type="email" autocomplete="username" aria-label="E-mail" placeholder="">
+        <input id="pass" class="login-hitbox-pass" type="password" autocomplete="current-password" aria-label="Senha" placeholder="" onkeydown="if(event.key==='Enter')doLogin()">
         <button class="login-hitbox-enter" type="button" aria-label="Entrar" onclick="doLogin()"></button>
         <button class="login-hitbox-forgot" type="button" aria-label="Esqueci minha senha" onclick="resetPassword()"></button>
       </div>
     </div>
     <style>
-      .login-integrated{position:relative;width:100%;height:100vh;min-height:100vh;background:#050505;overflow:hidden}
-      .login-integrated-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
-      .login-hitbox{position:absolute;z-index:2;left:2%;top:25%;width:53%;height:52%}
-      .login-hitbox input{position:absolute;left:5%;width:94%;height:11%;box-sizing:border-box;border:0;background:transparent;color:#fff;font-size:16px;outline:none;padding:4px 12px}
-      .login-hitbox input:focus{background:rgba(0,0,0,.08);border-bottom:1px solid rgba(255,148,24,.55)}
-      .login-hitbox-email{top:11%}
-      .login-hitbox-pass{top:31%}
-      .login-hitbox-enter{position:absolute;left:3%;top:50%;width:94%;height:14%;border:0;background:transparent;border-radius:40px;cursor:pointer}
-      .login-hitbox-forgot{position:absolute;left:25%;top:72%;width:50%;height:10%;border:0;background:transparent;cursor:pointer}
+      .login-integrated{position:relative;width:100%;height:100vh;min-height:100vh;background:#050505;overflow:hidden;display:flex;align-items:center;justify-content:center}
+      .login-integrated-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;display:block}
+      .login-hitbox{position:absolute;z-index:2;left:0;top:0;width:100%;height:100%;pointer-events:none}
+      .login-hitbox input,
+      .login-hitbox button{font-family:inherit!important}
+      .login-hitbox input{position:absolute!important;box-sizing:border-box!important;border:0!important;border-radius:0!important;background:transparent!important;background-color:transparent!important;box-shadow:none!important;color:#fff!important;outline:none!important;padding:0 12px!important;margin:0!important;font-size:16px!important;pointer-events:auto!important}
+      .login-hitbox input::placeholder{color:transparent!important}
+      .login-hitbox input:focus{background:transparent!important;border:0!important;box-shadow:none!important}
+      .login-hitbox-email{left:28.8%!important;top:39.9%!important;width:42.2%!important;height:5.9%!important}
+      .login-hitbox-pass{left:28.8%!important;top:47.1%!important;width:42.2%!important;height:6%!important}
+      .login-hitbox-enter{position:absolute!important;left:28.8%!important;top:55.1%!important;width:42.2%!important;height:5.2%!important;border:0!important;border-radius:40px!important;background:transparent!important;box-shadow:none!important;cursor:pointer!important;pointer-events:auto!important}
+      .login-hitbox-forgot{position:absolute!important;left:39%!important;top:61.8%!important;width:22%!important;height:3%!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;cursor:pointer!important;pointer-events:auto!important}
       @media(max-width:800px){
-        .login-integrated-bg{object-position:center}
-        .login-hitbox{left:2%;top:27%;width:57%;height:50%}
+        .login-integrated-bg{object-fit:contain;object-position:center}
       }
       @media(max-width:520px){
         .login-integrated{height:100svh;min-height:100svh}
-        .login-integrated-bg{object-position:58% center}
-        .login-hitbox{left:3%;top:28%;width:64%;height:49%}
-        .login-hitbox input{font-size:14px}
+        .login-integrated-bg{object-fit:contain;object-position:center}
+        .login-hitbox input{font-size:14px!important}
       }
     </style>`;
 };
