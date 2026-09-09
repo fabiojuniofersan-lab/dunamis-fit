@@ -12,38 +12,40 @@
   window.table=function(list){const html=oldTable(list);return html.replace(/<button class="btn secondary" onclick='evaluationForm\(([^']+)\)'>Avaliar<\/button>/g,(m,id)=>`<button class="btn secondary" onclick='evaluationForm(${id})'>Avaliar</button><button class="btn secondary" onclick='deleteStudent(${id})'>Excluir</button>`) };
 })();
 
-// Tela inicial: login embutido sobre a arte de abertura, sem tela dividida.
+// Tela inicial: usa a arte completa como interface visual.
+// Os campos e botões abaixo são apenas áreas funcionais transparentes sobre a arte,
+// evitando duplicar o formulário que já está desenhado na imagem.
 window.login=function(){
   app.innerHTML=`
     <div class="login-integrated">
       <img class="login-integrated-bg" src="dunamis-fit-abertura.png" alt="Dunamis Fit - Força que vem do alto">
-      <div class="login-integrated-form">
-        <div class="login-integrated-field">
-          <label for="email">E-mail</label>
-          <input id="email" type="email" autocomplete="username" placeholder="Seu e-mail">
-        </div>
-        <div class="login-integrated-field">
-          <label for="pass">Senha</label>
-          <input id="pass" type="password" autocomplete="current-password" placeholder="Sua senha" onkeydown="if(event.key==='Enter')doLogin()">
-        </div>
-        <button class="login-integrated-btn" onclick="doLogin()">Entrar <span>→</span></button>
-        <button class="login-integrated-forgot" type="button" onclick="resetPassword()">Esqueci minha senha</button>
+      <div class="login-hitbox">
+        <input id="email" class="login-hitbox-email" type="email" autocomplete="username" aria-label="E-mail">
+        <input id="pass" class="login-hitbox-pass" type="password" autocomplete="current-password" aria-label="Senha" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="login-hitbox-enter" type="button" aria-label="Entrar" onclick="doLogin()"></button>
+        <button class="login-hitbox-forgot" type="button" aria-label="Esqueci minha senha" onclick="resetPassword()"></button>
       </div>
     </div>
     <style>
-      .login-integrated{position:relative;width:100%;min-height:100vh;background:#050505;overflow:hidden;display:flex;align-items:center;justify-content:center}
-      .login-integrated-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-      .login-integrated-form{position:absolute;z-index:2;width:min(31vw,430px);right:7.5%;top:52%;transform:translateY(-50%);display:flex;flex-direction:column;gap:12px}
-      .login-integrated-field{display:flex;flex-direction:column;gap:5px}
-      .login-integrated-field label{font-size:13px;font-weight:600;color:#f5f5f5;text-shadow:0 1px 3px #000}
-      .login-integrated-field input{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid rgba(255,255,255,.55);background:rgba(8,8,8,.22);color:#fff;padding:12px 4px;font-size:15px;outline:none;border-radius:0}
-      .login-integrated-field input::placeholder{color:rgba(255,255,255,.75)}
-      .login-integrated-field input:focus{border-bottom-color:#ff9418}
-      .login-integrated-btn{margin-top:5px;width:100%;border:0;border-radius:28px;padding:13px 18px;background:linear-gradient(90deg,#ffb51b,#f47d0b);color:#fff;font-weight:800;font-size:16px;cursor:pointer;box-shadow:0 7px 22px rgba(0,0,0,.28)}
-      .login-integrated-btn span{margin-left:8px}
-      .login-integrated-forgot{align-self:flex-end;border:0;background:transparent;color:#f6a126;font-size:12px;cursor:pointer;padding:2px 0}
-      @media(max-width:800px){.login-integrated-form{width:70%;right:8%;top:56%}}
-      @media(max-width:520px){.login-integrated{min-height:100svh}.login-integrated-bg{object-position:58% center}.login-integrated-form{width:78%;right:6%;top:60%}.login-integrated-field input{padding:10px 3px}.login-integrated-btn{padding:12px;font-size:15px}}
+      .login-integrated{position:relative;width:100%;height:100vh;min-height:100vh;background:#050505;overflow:hidden}
+      .login-integrated-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+      .login-hitbox{position:absolute;z-index:2;left:2%;top:25%;width:53%;height:52%}
+      .login-hitbox input{position:absolute;left:5%;width:94%;height:11%;box-sizing:border-box;border:0;background:transparent;color:#fff;font-size:16px;outline:none;padding:4px 12px}
+      .login-hitbox input:focus{background:rgba(0,0,0,.08);border-bottom:1px solid rgba(255,148,24,.55)}
+      .login-hitbox-email{top:11%}
+      .login-hitbox-pass{top:31%}
+      .login-hitbox-enter{position:absolute;left:3%;top:50%;width:94%;height:14%;border:0;background:transparent;border-radius:40px;cursor:pointer}
+      .login-hitbox-forgot{position:absolute;left:25%;top:72%;width:50%;height:10%;border:0;background:transparent;cursor:pointer}
+      @media(max-width:800px){
+        .login-integrated-bg{object-position:center}
+        .login-hitbox{left:2%;top:27%;width:57%;height:50%}
+      }
+      @media(max-width:520px){
+        .login-integrated{height:100svh;min-height:100svh}
+        .login-integrated-bg{object-position:58% center}
+        .login-hitbox{left:3%;top:28%;width:64%;height:49%}
+        .login-hitbox input{font-size:14px}
+      }
     </style>`;
 };
 
