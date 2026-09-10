@@ -3,7 +3,7 @@
   const sb=window.dunamisSupabase;
   if(!sb)return;
   const monthDue=(day)=>{const d=new Date(),m=d.getMonth()+1,y=d.getFullYear();return `${y}-${String(m).padStart(2,'0')}-${String(Math.min(Math.max(Number(day)||1,1),28)).padStart(2,'0')}`};
-  const mapStudent=(p,s,ev,pa)=>({id:p.id,supabaseId:p.id,name:p.full_name||'',birth:p.birth_date||'',email:p.email||'',phone:p.phone||'',photo:p.photo_url||'',plan:s?.plan||'4 dias por semana',value:Number(s?.monthly_value||80),due:Number(s?.due_day||10),start:s?.start_date||'',paymentMethod:s?.payment_method||'Pix',status:s?.status||'pending',evaluations:(ev||[]).map(x=>({id:x.id,date:x.evaluation_date,weight:Number(x.weight||0),height:Number(x.height||0),sex:x.sex||null,activityLevel:x.activity_level||null})),cloudPayments:pa||[]});
+  const mapStudent=(p,s,ev,pa)=>({id:p.id,supabaseId:p.id,name:p.full_name||'',birth:p.birth_date||'',email:p.email||'',phone:p.phone||'',photo:p.photo_url||'',plan:s?.plan||'4 dias por semana',value:Number(s?.monthly_value||80),due:Number(s?.due_day||10),start:s?.start_date||'',paymentMethod:s?.payment_method||'Pix',status:s?.status||'pending',evaluations:(ev||[]).map(x=>({id:x.id,date:x.evaluation_date,weight:Number(x.weight||0),height:Number(x.height||0)})),cloudPayments:pa||[]});
   function saveLocal(){try{localStorage.setItem('dunamis_fit_cloud_cache',JSON.stringify(data))}catch(e){}}
   async function refreshCloudData(){
     if(!current)return;
