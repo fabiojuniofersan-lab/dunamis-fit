@@ -9,11 +9,12 @@
   const dueDate=(day)=>{const [y,m]=currentMonth().split('-').map(Number);const last=new Date(Date.UTC(y,m,0)).getUTCDate();return `${y}-${String(m).padStart(2,'0')}-${String(Math.min(Math.max(Number(day)||1,1),last)).padStart(2,'0')}`};
   function monthPayment(student){
     const month=currentMonth();
-    return (student.cloudPayments||[]).filter(p=>String(p.due_date||'').slice(0,7)===month).sort((a,b)=>String(b.due_date).localeCompare(String(a.due_date)))[0]||null;
+    const payments=Array.isArray(data?.payments)?data.payments:[];
+    return payments.filter(p=>String(p.studentId||p.student_id)===String(student.id)&&String(p.dueDate||p.due_date||'').slice(0,7)===month).sort((a,b)=>String(b.dueDate||b.due_date).localeCompare(String(a.dueDate||a.due_date)))[0]||null;
   }
   function effectiveStatus(student){
     const p=monthPayment(student);
-    if(p?.status==='paid'||student.status==='paid')return 'paid';
+    if(p?.status==='paid')return 'paid';
     const due=dueDate(student.due);
     return brToday()>due?'late':'pending';
   }
