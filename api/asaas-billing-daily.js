@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
     const targetIso = `${targetYear}-${String(targetMonth).padStart(2,'0')}-${String(targetDay).padStart(2,'0')}`;
 
     const [sr, pr] = await Promise.all([
-      sb('/rest/v1/students?select=id,monthly_value,due_day,status,plan&status=neq.paid'),
+      sb('/rest/v1/students?select=id,monthly_value,due_day,status,plan,payment_method&status=neq.paid'),
       sb('/rest/v1/profiles?role=eq.student&select=id,full_name,email,phone')
     ]);
     const students = await sr.json();
@@ -50,8 +50,12 @@ module.exports = async (req, res) => {
       const dueDay = Math.min(Math.max(Number(student.due_day) || 1, 1), new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate());
       if (dueDay !== targetDay) { skipped++; continue; }
 
+      // Dinheiro é recebido presencialmente e não deve gerar cobrança Asaas automática.
+      if (student.payment_method === 'Dinheiro') { skipped++; results.push({ id: student.id, status: 'dinheiro_presencial' }); continue; }
+
       const due = targetIso;
       const externalReference = `${student.id}:${due}`;
+      const method = student.payment_method === 'Pix' ? 'Pix' : 'Cartão';
       try {
         const local = await sb(`/rest/v1/payments?external_reference=eq.${encodeURIComponent(externalReference)}&select=id,status,gateway_payment_id,invoice_url&limit=1`);
         const localRows = await local.json();
@@ -80,7 +84,7 @@ module.exports = async (req, res) => {
         } else {
           const charge = await aa('/payments', {
             method: 'POST',
-            body: JSON.stringify({ customer: customerId, billingType: 'UNDEFINED', value: Number(student.monthly_value), dueDate: due, description: `Dunamis Fit — ${student.plan}`, externalReference })
+            body: JSON.stringify({ customer: customerId, billingType: method === 'Pix' ? 'PIX' : 'CREDIT_CARD', value: Number(student.monthly_value), dueDate: due, description: `Dunamis Fit — ${student.plan}`, externalReference })
           });
           payment = await charge.json();
           if (!charge.ok) throw new Error(payment?.errors?.[0]?.description || 'Falha ao criar cobrança Asaas.');
@@ -91,7 +95,7 @@ module.exports = async (req, res) => {
           student_id: student.id,
           amount: Number(student.monthly_value),
           due_date: due,
-          method: 'Cartão',
+          method,
           status: 'pending',
           gateway: 'asaas',
           gateway_payment_id: payment.id,
@@ -103,7 +107,7 @@ module.exports = async (req, res) => {
           ? await sb(`/rest/v1/payments?id=eq.${encodeURIComponent(existing.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(payload) })
           : await sb('/rest/v1/payments', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(payload) });
         if (!saved.ok) throw new Error('Cobrança criada no Asaas, mas não registrada no histórico local.');
-        results.push({ id: student.id, status: payment.invoiceUrl ? 'preparado' : 'preparado_sem_link', amount: money(student.monthly_value) });
+        results.push({ id: student.id, status: payment.invoiceUrl ? 'preparado' : 'preparado_sem_link', amount: money(student.monthly_value), method });
       } catch (error) {
         failed++;
         results.push({ id: student.id, status: 'erro', error: String(error.message || error).slice(0, 300) });
