@@ -33,8 +33,14 @@ create table if not exists public.evaluations (
   evaluation_date date not null default current_date,
   weight numeric(6,2),
   height numeric(4,2),
+  sex text check (sex in ('female','male')),
+  activity_level text check (activity_level in ('sedentario','leve','moderado','alto','atleta')),
   created_at timestamptz not null default now()
 );
+
+-- Compatibilidade com bancos criados antes da inclusão de TMB/GET.
+alter table public.evaluations add column if not exists sex text;
+alter table public.evaluations add column if not exists activity_level text;
 
 create table if not exists public.payments (
   id uuid primary key default gen_random_uuid(),
@@ -99,7 +105,6 @@ create policy "profiles own or admin select" on public.profiles
 for select to authenticated
 using ((select auth.uid()) = id or (select private.is_admin()));
 
--- Students do not have direct write access to account/billing fields.
 create policy "admin updates profiles" on public.profiles
 for update to authenticated
 using ((select private.is_admin()))
