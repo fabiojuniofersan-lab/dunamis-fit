@@ -12,12 +12,13 @@
     const modal=document.querySelector('.modal .modal-card');
     if(!modal || modal.querySelector('#spw')) return;
     const title=(modal.querySelector('h3')?.textContent||'').toLowerCase();
-    if(!title.includes('novo')) return;
+    if(!title.includes('aluno')) return;
     const form=modal.querySelector('.form-grid');
     if(!form) return;
+    const isNew=title.includes('novo');
     const field=document.createElement('div');
     field.className='field';
-    field.innerHTML='<label>Senha inicial do aluno</label><input id="spw" type="password" minlength="6" autocomplete="new-password" placeholder="Mínimo de 6 caracteres"><small class="muted">O aluno usará esta senha no primeiro acesso.</small>';
+    field.innerHTML=`<label>${isNew?'Senha inicial do aluno':'Nova senha (opcional)'}</label><input id="spw" type="password" minlength="6" autocomplete="new-password" placeholder="${isNew?'Mínimo de 6 caracteres':'Deixe em branco para manter a atual'}"><small class="muted">${isNew?'O aluno usará esta senha no primeiro acesso.':'Preencha somente se quiser alterar a senha do aluno.'}</small>`;
     form.appendChild(field);
   }
 
@@ -44,7 +45,7 @@
     checks.push({name:'Endpoint WhatsApp',ok:true});
     checks.push({name:'Cron de notificações',ok:true});
     checks.push({name:'Gateway Asaas',ok:true});
-    checks.push({name:'Cadastro de aluno com senha',ok:!!document.querySelector('#spw') || !document.querySelector('.modal'));
+    checks.push({name:'Cadastro de aluno com senha',ok:!!document.querySelector('#spw') || !document.querySelector('.modal')});
     return checks;
   }
 
