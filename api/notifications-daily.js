@@ -1,5 +1,5 @@
 // Dunamis Fit — lembretes automáticos de mensalidade dentro do app.
-// O cron é idempotente: cada aluno recebe no máximo uma ocorrência de cada tipo por competência.
+// O cron é idempotente e reconcilia o status mensal antes de notificar.
 module.exports = async (req, res) => {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -26,29 +26,37 @@ module.exports = async (req, res) => {
   const period = `${year}-${String(month).padStart(2, '0')}`;
 
   try {
-    const [sr, pr] = await Promise.all([
+    const [sr, pr, payr] = await Promise.all([
       api('/rest/v1/students?select=id,plan,monthly_value,due_day,status&order=due_day'),
-      api('/rest/v1/profiles?role=eq.student&select=id,full_name,email')
+      api('/rest/v1/profiles?role=eq.student&select=id,full_name,email'),
+      api(`/rest/v1/payments?due_date=gte.${period}-01&due_date=lt.${year}-${String(month + 1 > 12 ? 1 : month + 1).padStart(2,'0')}-01&select=student_id,due_date,status`)
     ]);
     const students = await sr.json();
     const profiles = await pr.json();
-    if (!sr.ok || !pr.ok) throw new Error('Não foi possível carregar os alunos.');
+    const payments = await payr.json();
+    if (!sr.ok || !pr.ok || !payr.ok) throw new Error('Não foi possível carregar os dados de cobrança.');
 
     const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-    const result = { created: 0, skipped: 0, overdue: 0 };
+    const paidSet = new Set((payments || []).filter(p => p.status === 'paid').map(p => `${p.student_id}:${p.due_date}`));
+    const result = { created: 0, skipped: 0, overdue: 0, statusUpdated: 0 };
 
     for (const student of students || []) {
-      if (student.status === 'paid') { result.skipped++; continue; }
       const profile = profileMap.get(student.id);
       if (!profile) { result.skipped++; continue; }
-
       const due = dueDateFor(student.due_day);
       const dueIso = iso(due);
       const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
-      let type = null;
-      let title = null;
-      let message = null;
+      const paid = paidSet.has(`${student.id}:${dueIso}`);
+      const nextStatus = paid ? 'paid' : (diffDays < 0 ? 'late' : 'pending');
 
+      if (student.status !== nextStatus) {
+        const srUpdate = await api(`/rest/v1/students?id=eq.${encodeURIComponent(student.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: nextStatus }) });
+        if (!srUpdate.ok) throw new Error('Não foi possível atualizar o status mensal.');
+        result.statusUpdated++;
+      }
+      if (paid) { result.skipped++; continue; }
+
+      let type = null, title = null, message = null;
       if (diffDays === 3) {
         type = 'payment_reminder_3d';
         title = 'Mensalidade próxima do vencimento';
@@ -63,7 +71,6 @@ module.exports = async (req, res) => {
         message = `Sua mensalidade de R$ ${money(student.monthly_value)} está em atraso desde ${dueIso}.`;
         result.overdue++;
       }
-
       if (!type) { result.skipped++; continue; }
 
       const dedupeKey = `billing:${student.id}:${period}:${type}`;
