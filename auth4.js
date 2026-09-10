@@ -3,7 +3,7 @@
   const sb=window.dunamisSupabase;
   if(!sb)return;
   const monthDue=(day)=>{const d=new Date(),m=d.getMonth()+1,y=d.getFullYear();return `${y}-${String(m).padStart(2,'0')}-${String(Math.min(Math.max(Number(day)||1,1),28)).padStart(2,'0')}`};
-  const mapStudent=(p,s,ev,pa)=>({id:p.id,supabaseId:p.id,name:p.full_name||'',birth:p.birth_date||'',email:p.email||'',phone:p.phone||'',photo:p.photo_url||'',plan:s?.plan||'4 dias por semana',value:Number(s?.monthly_value||80),due:Number(s?.due_day||10),start:s?.start_date||'',paymentMethod:s?.payment_method||'Pix',status:s?.status||'pending',evaluations:(ev||[]).map(x=>({id:x.id,date:x.evaluation_date,weight:Number(x.weight||0),height:Number(x.height||0)})),cloudPayments:pa||[]});
+  const mapStudent=(p,s,ev,pa)=>({id:p.id,supabaseId:p.id,name:p.full_name||'',birth:p.birth_date||'',email:p.email||'',phone:p.phone||'',photo:p.photo_url||'',plan:s?.plan||'4 dias por semana',value:Number(s?.monthly_value||80),due:Number(s?.due_day||10),start:s?.start_date||'',paymentMethod:s?.payment_method||'Pix',status:s?.status||'pending',evaluations:(ev||[]).map(x=>({id:x.id,date:x.evaluation_date,weight:Number(x.weight||0),height:Number(x.height||0),sex:x.sex||null,activityLevel:x.activity_level||null})),cloudPayments:pa||[]});
   function saveLocal(){try{localStorage.setItem('dunamis_fit_cloud_cache',JSON.stringify(data))}catch(e){}}
   async function refreshCloudData(){
     if(!current)return;
@@ -27,23 +27,15 @@
     recoveryHandled=true;
     await new Promise(resolve=>setTimeout(resolve,1200));
     let {data:sd}=await sb.auth.getSession();
-    if(!sd.session){
-      await new Promise(resolve=>setTimeout(resolve,1800));
-      ({data:sd}=await sb.auth.getSession());
-    }
+    if(!sd.session){await new Promise(resolve=>setTimeout(resolve,1800));({data:sd}=await sb.auth.getSession())}
     if(!sd.session){recoveryHandled=false;alert('O link de recuperação expirou ou já foi utilizado. Solicite um novo e-mail de recuperação.');return true}
     let password=prompt('Defina uma nova senha para o Dunamis Fit (mínimo de 6 caracteres):');
     if(password===null){await sb.auth.signOut();history.replaceState({},document.title,location.pathname);return true}
-    password=String(password);
-    if(password.length<6){alert('A senha deve ter pelo menos 6 caracteres. Abra o e-mail de recuperação novamente para tentar de novo.');await sb.auth.signOut();history.replaceState({},document.title,location.pathname);return true}
+    password=String(password);if(password.length<6){alert('A senha deve ter pelo menos 6 caracteres. Abra o e-mail de recuperação novamente para tentar de novo.');await sb.auth.signOut();history.replaceState({},document.title,location.pathname);return true}
     const confirmation=prompt('Digite novamente a nova senha para confirmar:');
     if(confirmation===null||String(confirmation)!==password){alert('As senhas não conferem. Abra o e-mail de recuperação novamente para tentar de novo.');await sb.auth.signOut();history.replaceState({},document.title,location.pathname);return true}
-    const {error}=await sb.auth.updateUser({password});
-    if(error){console.error(error);alert('Não foi possível atualizar a senha. Solicite um novo e-mail de recuperação e tente novamente.');await sb.auth.signOut();history.replaceState({},document.title,location.pathname);return true}
-    await sb.auth.signOut();
-    history.replaceState({},document.title,location.pathname);
-    alert('Senha alterada com sucesso! Agora entre com seu e-mail e a nova senha.');
-    return true;
+    const {error}=await sb.auth.updateUser({password});if(error){console.error(error);alert('Não foi possível atualizar a senha. Solicite um novo e-mail de recuperação e tente novamente.');await sb.auth.signOut();history.replaceState({},document.title,location.pathname);return true}
+    await sb.auth.signOut();history.replaceState({},document.title,location.pathname);alert('Senha alterada com sucesso! Agora entre com seu e-mail e a nova senha.');return true;
   }
   sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')setTimeout(()=>handleRecovery(true),0)});
   window.doLogin=async function(){const e=String(document.getElementById('email')?.value||'').trim().toLowerCase(),p=String(document.getElementById('pass')?.value||'');if(!e||!p)return alert('Informe e-mail e senha.');const b=document.querySelector('.login-panel .btn.primary');if(b){b.disabled=true;b.textContent='Entrando...'}const {data:a,error}=await sb.auth.signInWithPassword({email:e,password:p});if(error){if(b){b.disabled=false;b.textContent='Entrar →'}if(error.message?.toLowerCase().includes('confirm'))return alert('Este e-mail ainda não foi confirmado.');return alert('E-mail ou senha incorretos')}const {data:profile,error:pe}=await sb.from('profiles').select('*').eq('id',a.user.id).maybeSingle();if(pe||!profile){await sb.auth.signOut();return alert('Perfil do usuário não encontrado.')}current={email:profile.email,name:profile.full_name,role:profile.role==='admin'?'admin':'aluno',studentId:a.user.id};try{await refreshCloudData()}catch(err){console.error(err)}page=current.role==='admin'?'dashboard':'meu';render()};
@@ -54,12 +46,7 @@
     const old=id?data.students.find(x=>String(x.id)===String(id)):null;
     const name=String(document.getElementById('sn')?.value||'').trim(),birth=document.getElementById('sb')?.value||'',email=String(document.getElementById('se')?.value||'').trim().toLowerCase(),password=String(document.getElementById('spw')?.value||''),phone=String(document.getElementById('sp')?.value||'').trim(),plan=document.getElementById('spl')?.value||'4 dias por semana',value=Number(document.getElementById('sv')?.value)||PLANS[plan],due=Number(document.getElementById('sd')?.value||10),start=document.getElementById('sst')?.value||'',paymentMethod=document.getElementById('spm')?.value||'Pix',weight=Number(document.getElementById('sw')?.value||0),height=Number(document.getElementById('sh')?.value||0);
     if(!name||!email)return alert('Informe nome e e-mail.');if(!id&&password.length<6)return alert('A senha deve ter pelo menos 6 caracteres.');if(id&&password&&password.length<6)return alert('A nova senha deve ter pelo menos 6 caracteres.');if(data.students.some(x=>x.email===email&&String(x.id)!==String(id)))return alert('Este e-mail já está cadastrado.');
-    try{
-      const {data:sessionData}=await sb.auth.getSession();const token=sessionData?.session?.access_token;if(!token)throw new Error('Sessão do administrador expirada. Entre novamente.');
-      const response=await fetch('/api/admin-student',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({id:id||null,name,birth,email,password:password||null,phone,plan,value,due,start,paymentMethod,weight,height,status:old?.status||'pending'})});
-      const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||'Não foi possível salvar o aluno.');
-      await refreshCloudData();render();if(!old)alert('Aluno cadastrado com sucesso.');
-    }catch(err){console.error(err);alert('Não foi possível salvar o aluno: '+(err?.message||'erro desconhecido'))}
+    try{const {data:sessionData}=await sb.auth.getSession();const token=sessionData?.session?.access_token;if(!token)throw new Error('Sessão do administrador expirada. Entre novamente.');const response=await fetch('/api/admin-student',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({id:id||null,name,birth,email,password:password||null,phone,plan,value,due,start,paymentMethod,weight,height,status:old?.status||'pending'})});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||'Não foi possível salvar o aluno.');await refreshCloudData();render();if(!old)alert('Aluno cadastrado com sucesso.');}catch(err){console.error(err);alert('Não foi possível salvar o aluno: '+(err?.message||'erro desconhecido'))}
   };
   window.saveEvaluation=async function(id){if(!current||current.role!=='admin')return alert('Somente o administrador pode registrar avaliações.');const w=Number(document.getElementById('ew')?.value||0),h=Number(document.getElementById('eh')?.value||0),d=document.getElementById('ed')?.value||dateNow();if(!w||!h)return alert('Informe peso e altura.');const {data:latest,error:qe}=await sb.from('evaluations').select('weight,height,evaluation_date').eq('student_id',id).order('evaluation_date',{ascending:false}).limit(1);if(qe)return alert('Não foi possível consultar a avaliação anterior.');const previous=latest?.[0];if(previous&&Number(previous.weight)===w&&Number(previous.height)===h&&String(previous.evaluation_date)===String(d))return alert('Essa avaliação já está registrada.');const {error}=await sb.from('evaluations').insert({student_id:id,evaluation_date:d,weight:w,height:h});if(error)return alert('Não foi possível salvar a avaliação.');await refreshCloudData();render()};
   window.pay=async function(id){if(!current||current.role!=='admin')return alert('Somente o administrador pode confirmar pagamentos.');const s=data.students.find(x=>String(x.id)===String(id));if(!s)return;const due=monthDue(s.due);const {data:existing,error:qe}=await sb.from('payments').select('*').eq('student_id',s.id).eq('due_date',due).maybeSingle();if(qe)return alert('Não foi possível consultar o pagamento.');let error;if(existing){({error}=await sb.from('payments').update({amount:s.value,paid_at:new Date().toISOString(),method:s.paymentMethod,status:'paid'}).eq('id',existing.id))}else{({error}=await sb.from('payments').insert({student_id:s.id,amount:s.value,due_date:due,paid_at:new Date().toISOString(),method:s.paymentMethod,status:'paid'}))}if(error)return alert('Não foi possível confirmar o pagamento.');await sb.from('students').update({status:'paid'}).eq('id',s.id);await sb.from('notifications').insert({user_id:current.studentId,title:'Pagamento confirmado',message:`Pagamento confirmado: ${s.name} — R$ ${money(s.value)}`,type:'payment'});await refreshCloudData();alert('Pagamento confirmado com sucesso.');render()};
