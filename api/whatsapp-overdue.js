@@ -11,7 +11,8 @@ module.exports=async function handler(request,response){try{
   if(!process.env.CRON_SECRET||request.headers.authorization!==`Bearer ${process.env.CRON_SECRET}`)return response.status(401).json({ok:false,error:'Unauthorized'});
   const required=['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','WHATSAPP_ACCESS_TOKEN','WHATSAPP_PHONE_NUMBER_ID'];const missing=required.filter(key=>!process.env[key]);if(missing.length)return response.status(500).json({ok:false,error:`Variáveis ausentes: ${missing.join(', ')}`});
   const today=brazilToday(),{year,month,period}=currentMonth(today),day=Number(today.slice(8,10)),nextMonth=new Date(Date.UTC(year,month,1)),nextMonthIso=`${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth()+1).padStart(2,'0')}-01`;
-  const students=await supabaseRequest('/rest/v1/students?select=id,monthly_value,due_day,status&status=neq.paid');
+  // O pagamento da competência atual é a fonte de verdade; status agregado do aluno pode estar defasado.
+  const students=await supabaseRequest('/rest/v1/students?select=id,monthly_value,due_day,status');
   const profiles=await supabaseRequest('/rest/v1/profiles?select=id,full_name,phone&role=eq.student');
   const payments=await supabaseRequest(`/rest/v1/payments?due_date=gte.${period}-01&due_date=lt.${nextMonthIso}&select=student_id,due_date,status`);
   const profileMap=new Map((profiles||[]).map(p=>[p.id,p])),paidSet=new Set((payments||[]).filter(p=>p.status==='paid').map(p=>`${p.student_id}:${p.due_date}`));
