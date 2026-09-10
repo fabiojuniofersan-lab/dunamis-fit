@@ -1,4 +1,5 @@
-// Dunamis Fit — lembretes automáticos de mensalidade dentro do app
+// Dunamis Fit — lembretes automáticos de mensalidade dentro do app.
+// O cron é idempotente: cada aluno recebe no máximo uma ocorrência de cada tipo por competência.
 module.exports = async (req, res) => {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -22,6 +23,7 @@ module.exports = async (req, res) => {
   const dueDateFor = (dueDay) => new Date(Date.UTC(year, month - 1, Math.min(Math.max(Number(dueDay) || 1, 1), daysInMonth)));
   const iso = (d) => d.toISOString().slice(0, 10);
   const money = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const period = `${year}-${String(month).padStart(2, '0')}`;
 
   try {
     const [sr, pr] = await Promise.all([
@@ -64,16 +66,13 @@ module.exports = async (req, res) => {
 
       if (!type) { result.skipped++; continue; }
 
-      const existing = await api(`/rest/v1/notifications?user_id=eq.${encodeURIComponent(student.id)}&type=eq.${encodeURIComponent(type)}&created_at=gte.${encodeURIComponent(`${year}-${String(month).padStart(2,'0')}-01T00:00:00-03:00`)}&select=id&limit=1`);
-      const existingData = await existing.json();
-      if (!existing.ok) throw new Error('Não foi possível verificar notificações existentes.');
-      if (existingData?.length) { result.skipped++; continue; }
-
+      const dedupeKey = `billing:${student.id}:${period}:${type}`;
       const nr = await api('/rest/v1/notifications', {
         method: 'POST',
         headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify({ user_id: student.id, title, message, type })
+        body: JSON.stringify({ user_id: student.id, title, message, type, dedupe_key: dedupeKey })
       });
+      if (nr.status === 409) { result.skipped++; continue; }
       if (!nr.ok) throw new Error('Não foi possível criar uma notificação.');
       result.created++;
     }
