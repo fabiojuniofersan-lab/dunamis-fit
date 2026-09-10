@@ -31,17 +31,25 @@ module.exports = async (req, res) => {
     const targetMonth = target.getUTCMonth() + 1;
     const targetDay = target.getUTCDate();
     const targetIso = `${targetYear}-${String(targetMonth).padStart(2,'0')}-${String(targetDay).padStart(2,'0')}`;
+    const targetPeriod = `${targetYear}-${String(targetMonth).padStart(2,'0')}`;
+    const targetNextMonth = new Date(Date.UTC(targetYear, targetMonth, 1));
+    const targetNextIso = `${targetNextMonth.getUTCFullYear()}-${String(targetNextMonth.getUTCMonth()+1).padStart(2,'0')}-01`;
 
-    const [sr, pr] = await Promise.all([
-      sb('/rest/v1/students?select=id,monthly_value,due_day,status,plan,payment_method&status=neq.paid'),
-      sb('/rest/v1/profiles?role=eq.student&select=id,full_name,email,phone')
+    // O status mensal da cobrança é a fonte de verdade. Nunca usamos o status
+    // agregado do aluno para decidir se a competência futura já foi paga.
+    const [sr, pr, payr] = await Promise.all([
+      sb('/rest/v1/students?select=id,monthly_value,due_day,status,plan,payment_method'),
+      sb('/rest/v1/profiles?role=eq.student&select=id,full_name,email,phone'),
+      sb(`/rest/v1/payments?due_date=gte.${targetPeriod}-01&due_date=lt.${targetNextIso}&select=student_id,due_date,status,external_reference,gateway_payment_id,invoice_url`)
     ]);
     const students = await sr.json();
     const profiles = await pr.json();
-    if (!sr.ok || !pr.ok) throw new Error('Não foi possível carregar os alunos.');
+    const monthPayments = await payr.json();
+    if (!sr.ok || !pr.ok || !payr.ok) throw new Error('Não foi possível carregar os dados de cobrança.');
     const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+    const paymentMap = new Map((monthPayments || []).map(p => [p.external_reference || `${p.student_id}:${p.due_date}`, p]));
 
-    let created = 0, reused = 0, skipped = 0, failed = 0;
+    let created = 0, reused = 0, reconciled = 0, skipped = 0, failed = 0;
     const results = [];
 
     for (const student of students || []) {
@@ -50,18 +58,14 @@ module.exports = async (req, res) => {
       const dueDay = Math.min(Math.max(Number(student.due_day) || 1, 1), new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate());
       if (dueDay !== targetDay) { skipped++; continue; }
 
-      // Dinheiro é recebido presencialmente e não deve gerar cobrança Asaas automática.
       if (student.payment_method === 'Dinheiro') { skipped++; results.push({ id: student.id, status: 'dinheiro_presencial' }); continue; }
 
       const due = targetIso;
       const externalReference = `${student.id}:${due}`;
       const method = student.payment_method === 'Pix' ? 'Pix' : 'Cartão';
       try {
-        const local = await sb(`/rest/v1/payments?external_reference=eq.${encodeURIComponent(externalReference)}&select=id,status,gateway_payment_id,invoice_url&limit=1`);
-        const localRows = await local.json();
-        if (!local.ok) throw new Error('Falha ao consultar cobrança local.');
-        const existing = localRows?.[0];
-        if (existing?.status === 'paid') { skipped++; continue; }
+        let existing = paymentMap.get(externalReference) || null;
+        if (existing?.status === 'paid') { skipped++; results.push({ id: student.id, status: 'ja_pago' }); continue; }
         if (existing?.gateway_payment_id) { reused++; results.push({ id: student.id, status: 'ja_preparado' }); continue; }
 
         const customerSearch = await aa(`/customers?email=${encodeURIComponent(profile.email)}`);
@@ -79,9 +83,7 @@ module.exports = async (req, res) => {
         const remoteData = await remoteSearch.json();
         if (!remoteSearch.ok) throw new Error(remoteData?.errors?.[0]?.description || 'Falha ao consultar cobrança Asaas.');
         let payment = remoteData?.data?.[0];
-        if (payment) {
-          reused++;
-        } else {
+        if (!payment) {
           const charge = await aa('/payments', {
             method: 'POST',
             body: JSON.stringify({ customer: customerId, billingType: method === 'Pix' ? 'PIX' : 'CREDIT_CARD', value: Number(student.monthly_value), dueDate: due, description: `Dunamis Fit — ${student.plan}`, externalReference })
@@ -89,14 +91,19 @@ module.exports = async (req, res) => {
           payment = await charge.json();
           if (!charge.ok) throw new Error(payment?.errors?.[0]?.description || 'Falha ao criar cobrança Asaas.');
           created++;
+        } else {
+          reused++;
         }
 
+        const remotePaid = ['CONFIRMED', 'RECEIVED'].includes(String(payment.status || '').toUpperCase());
+        const localStatus = remotePaid ? 'paid' : 'pending';
         const payload = {
           student_id: student.id,
-          amount: Number(student.monthly_value),
+          amount: Number(payment.value ?? student.monthly_value),
           due_date: due,
-          method,
-          status: 'pending',
+          method: payment.billingType === 'PIX' ? 'Pix' : payment.billingType === 'CREDIT_CARD' ? 'Cartão' : method,
+          status: localStatus,
+          paid_at: remotePaid ? (payment.paymentDate || payment.confirmedDate || new Date().toISOString()) : null,
           gateway: 'asaas',
           gateway_payment_id: payment.id,
           external_reference: externalReference,
@@ -107,14 +114,22 @@ module.exports = async (req, res) => {
           ? await sb(`/rest/v1/payments?id=eq.${encodeURIComponent(existing.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(payload) })
           : await sb('/rest/v1/payments', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(payload) });
         if (!saved.ok) throw new Error('Cobrança criada no Asaas, mas não registrada no histórico local.');
-        results.push({ id: student.id, status: payment.invoiceUrl ? 'preparado' : 'preparado_sem_link', amount: money(student.monthly_value), method });
+
+        if (remotePaid) {
+          const st = await sb(`/rest/v1/students?id=eq.${encodeURIComponent(student.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'paid' }) });
+          if (!st.ok) throw new Error('Pagamento confirmado no Asaas, mas não foi possível atualizar o status do aluno.');
+          reconciled++;
+          results.push({ id: student.id, status: 'reconciliado_pago', amount: money(student.monthly_value), method });
+        } else {
+          results.push({ id: student.id, status: payment.invoiceUrl ? 'preparado' : 'preparado_sem_link', amount: money(student.monthly_value), method });
+        }
       } catch (error) {
         failed++;
         results.push({ id: student.id, status: 'erro', error: String(error.message || error).slice(0, 300) });
       }
     }
 
-    return res.status(200).json({ ok: true, targetDueDate: targetIso, created, reused, skipped, failed, results });
+    return res.status(200).json({ ok: true, targetDueDate: targetIso, created, reused, reconciled, skipped, failed, results });
   } catch (error) {
     console.error('Dunamis Fit Asaas billing cron:', error);
     return res.status(500).json({ ok: false, error: String(error.message || error) });
