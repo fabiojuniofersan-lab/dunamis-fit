@@ -1,10 +1,14 @@
 // Dunamis Fit — fluxo visual de recuperação de senha
-// O Supabase processa o link e emite PASSWORD_RECOVERY. Não alteramos
-// onAuthStateChange nem removemos o hash manualmente.
+// O Supabase processa o link e emite PASSWORD_RECOVERY. Também fazemos
+// uma detecção explícita da URL para não depender somente do evento.
 (function(){
   const sb=window.dunamisSupabase;
   if(!sb)return;
-  window.__dunamisRecoveryActive=false;
+
+  const params=new URLSearchParams(location.search);
+  const hash=location.hash||'';
+  const recoveryByUrl=params.get('type')==='recovery'||hash.includes('type=recovery')||hash.includes('access_token=');
+  window.__dunamisRecoveryActive=!!recoveryByUrl;
 
   function renderRecovery(){
     window.__dunamisRecoveryActive=true;
@@ -18,9 +22,13 @@
   });
 
   // O cliente Supabase foi criado com skipAutoInitialize para garantir que
-  // o listener acima esteja pronto antes do processamento do link de recuperação.
+  // o listener acima esteja pronto antes do processamento do link.
   // A inicialização acontece exatamente uma vez, aqui.
-  sb.auth.initialize().catch(err=>console.error('Dunamis Fit: erro ao inicializar autenticação',err));
+  sb.auth.initialize().then(()=>{
+    // Fallback robusto: se a URL identifica recuperação, mostramos a tela
+    // mesmo que o evento PASSWORD_RECOVERY tenha ocorrido antes do listener.
+    if(recoveryByUrl)setTimeout(renderRecovery,0);
+  }).catch(err=>console.error('Dunamis Fit: erro ao inicializar autenticação',err));
 
   window.finishRecoveryPassword=async function(){
     const p=String(document.getElementById('recovery-pass')?.value||''),c=String(document.getElementById('recovery-pass-confirm')?.value||'');
@@ -29,18 +37,22 @@
     const b=document.getElementById('recovery-save');if(b){b.disabled=true;b.textContent='Salvando...';}
     const {error}=await sb.auth.updateUser({password:p});
     if(error){console.error(error);if(b){b.disabled=false;b.textContent='Alterar senha →';}return alert('Não foi possível atualizar a senha. Solicite um novo e-mail de recuperação e tente novamente.');}
-    window.__dunamisRecoveryActive=false;await sb.auth.signOut();history.replaceState({},document.title,location.pathname+location.search);alert('Senha alterada com sucesso! Agora entre com seu e-mail e a nova senha.');if(typeof window.login==='function')window.login();
+    window.__dunamisRecoveryActive=false;await sb.auth.signOut();history.replaceState({},document.title,location.pathname);alert('Senha alterada com sucesso! Agora entre com seu e-mail e a nova senha.');if(typeof window.login==='function')window.login();
   };
-  window.cancelRecovery=async function(){window.__dunamisRecoveryActive=false;await sb.auth.signOut();history.replaceState({},document.title,location.pathname+location.search);if(typeof window.login==='function')window.login();};
+
+  window.cancelRecovery=async function(){window.__dunamisRecoveryActive=false;await sb.auth.signOut();history.replaceState({},document.title,location.pathname);if(typeof window.login==='function')window.login();};
 
   window.renderPasswordRecoveryEmail=function(){
     const app=document.getElementById('app');if(!app)return;
     app.innerHTML=`<div class="login"><section class="hero" style="padding:0;position:relative;overflow:hidden;background:#000;justify-content:center;align-items:center"><img src="dunamis-fit-abertura.png" alt="Dunamis Fit - Força que vem do alto" style="width:100%;height:100%;object-fit:cover;display:block"></section><section class="login-panel"><div class="card"><h2>RECUPERAR SENHA</h2><p class="muted">Informe o e-mail cadastrado para receber o link de recuperação.</p><div class="field"><label>E-mail</label><input id="recovery-email" type="email" placeholder="voce@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')sendRecoveryEmail()"></div><button class="btn primary" onclick="sendRecoveryEmail()">Enviar link →</button><button class="btn secondary" style="width:100%;margin-top:8px" onclick="login()">Voltar</button></div></section></div>`;
   };
+
   window.sendRecoveryEmail=async function(){
     const e=String(document.getElementById('recovery-email')?.value||'').trim().toLowerCase();if(!e)return alert('Informe seu e-mail.');
     const b=document.querySelector('.login-panel .btn.primary');if(b){b.disabled=true;b.textContent='Enviando...';}
-    const redirectTo=location.origin+location.pathname;const {error}=await sb.auth.resetPasswordForEmail(e,{redirectTo});
+    // Marcador explícito permite reconhecer o retorno mesmo em fluxos PKCE.
+    const redirectTo=location.origin+location.pathname+'?type=recovery';
+    const {error}=await sb.auth.resetPasswordForEmail(e,{redirectTo});
     if(error){console.error(error);if(b){b.disabled=false;b.textContent='Enviar link →';}return alert('Não foi possível enviar o e-mail de recuperação. Verifique a configuração de e-mail do Supabase ou tente novamente em alguns minutos.');}
     alert('Se o e-mail estiver cadastrado, enviaremos as instruções para redefinir a senha.');login();
   };
