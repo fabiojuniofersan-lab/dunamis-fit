@@ -19,13 +19,14 @@ module.exports = async (req, res) => {
     const user = await me.json();
     if (!me.ok || !user?.id) return res.status(401).json({ error: 'Sessão inválida.' });
 
-    const pr = await api(`/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=role`);
+    const pr = await fetch(`${url}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=role`, { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } });
     const profiles = await pr.json();
     if (!pr.ok || profiles?.[0]?.role !== 'admin') return res.status(403).json({ error: 'Somente o administrador pode gerenciar alunos.' });
 
     const body = req.body || {};
-    const { id, name, birth, email, password, phone, plan, value, due, start, paymentMethod, weight, height } = body;
+    const { id, name, birth, email, password, phone, gender, plan, value, due, start, paymentMethod, weight, height } = body;
     if (!name || !email || !plan || !paymentMethod) return res.status(400).json({ error: 'Dados obrigatórios ausentes.' });
+    if (gender && !['Feminino','Masculino','Outro','Prefiro não informar'].includes(gender)) return res.status(400).json({ error: 'Sexo inválido.' });
     if (!id && (!password || password.length < 6)) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
     if (id && password && password.length < 6) return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
 
@@ -50,7 +51,7 @@ module.exports = async (req, res) => {
       if (!uid) throw new Error('A conta do aluno não retornou um identificador.');
     }
 
-    const pe = await api('/rest/v1/profiles?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, role: 'student', full_name: name, email, phone: phone || null, birth_date: birth || null }) });
+    const pe = await api('/rest/v1/profiles?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, role: 'student', full_name: name, email, phone: phone || null, birth_date: birth || null, gender: gender || null }) });
     if (!pe.ok) throw new Error('Não foi possível salvar o perfil do aluno.');
 
     const preservedStatus = previousStudent?.status || 'pending';
