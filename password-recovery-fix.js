@@ -1,7 +1,5 @@
 // Dunamis Fit — recuperação de senha
-// IMPORTANTE: não remover o hash de recuperação antes que o Supabase processe
-// os tokens. Fazer history.replaceState() imediatamente faz o link parecer
-// expirado porque o cliente perde o token da sessão de recuperação.
+// O cliente Supabase é inicializado somente depois deste listener ser registrado.
 (function(){
   const sb=window.dunamisSupabase;
   if(!sb)return;
@@ -10,6 +8,7 @@
   sb.auth.onAuthStateChange=function(callback){
     return originalOnAuthStateChange((event,session)=>{
       if(event==='PASSWORD_RECOVERY'){
+        window.__dunamisRecoveryActive=true;
         setTimeout(()=>renderRecovery(session),0);
         return;
       }
@@ -38,6 +37,7 @@
     }
     await sb.auth.signOut();
     history.replaceState({},document.title,location.pathname+location.search);
+    window.__dunamisRecoveryActive=false;
     alert('Senha alterada com sucesso! Agora entre com seu e-mail e a nova senha.');
     if(typeof window.login==='function')window.login();
   };
@@ -45,6 +45,7 @@
   window.cancelRecovery=async function(){
     await sb.auth.signOut();
     history.replaceState({},document.title,location.pathname+location.search);
+    window.__dunamisRecoveryActive=false;
     if(typeof window.login==='function')window.login();
   };
 
@@ -69,4 +70,7 @@
     alert('Se o e-mail estiver cadastrado, enviaremos as instruções para redefinir a senha.');
     login();
   };
+
+  // Agora que o listener está registrado, inicializa o cliente.
+  sb.auth.initialize().catch(err=>console.error('Falha ao inicializar Supabase Auth:',err));
 })();
