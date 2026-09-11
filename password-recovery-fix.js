@@ -17,6 +17,11 @@
     if(event==='PASSWORD_RECOVERY')setTimeout(renderRecovery,0);
   });
 
+  // O cliente Supabase foi criado com skipAutoInitialize para garantir que
+  // o listener acima esteja pronto antes do processamento do link de recuperação.
+  // A inicialização acontece exatamente uma vez, aqui.
+  sb.auth.initialize().catch(err=>console.error('Dunamis Fit: erro ao inicializar autenticação',err));
+
   window.finishRecoveryPassword=async function(){
     const p=String(document.getElementById('recovery-pass')?.value||''),c=String(document.getElementById('recovery-pass-confirm')?.value||'');
     if(p.length<6)return alert('A senha deve ter pelo menos 6 caracteres.');
