@@ -1,6 +1,11 @@
 (function(){
   const sb=window.dunamisSupabase;
   if(!sb)return;
+  const recoveryHash=location.hash.includes('type=recovery');
+  if(recoveryHash){
+    history.replaceState({},document.title,location.pathname+location.search);
+    setTimeout(()=>renderRecovery(),0);
+  }
   const originalOnAuthStateChange=sb.auth.onAuthStateChange.bind(sb.auth);
   sb.auth.onAuthStateChange=function(callback){
     return originalOnAuthStateChange((event,session)=>{
