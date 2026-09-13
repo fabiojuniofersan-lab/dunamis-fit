@@ -7,21 +7,39 @@ module.exports = async (req, res) => {
   if (!expected) return res.status(500).json({ error: 'ASAAS_WEBHOOK_TOKEN não configurado.' });
   if (req.headers['asaas-access-token'] !== expected) return res.status(401).json({ error: 'Unauthorized' });
 
-  const url = process.env.SUPABASE_URL;
+  // Este é o mesmo projeto Supabase usado pelo frontend do Dunamis Fit.
+  // Mantemos o fallback para evitar que uma variável SUPABASE_URL inválida quebre o webhook.
+  const configuredUrl = String(process.env.SUPABASE_URL || '').trim();
+  const url = /^https:\/\/[^\s/]+(?:\/.*)?$/i.test(configuredUrl)
+    ? configuredUrl.replace(/\/$/, '')
+    : 'https://lfcgxwbhvyqyfusiqbmz.supabase.co';
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const asaasKey = process.env.ASAAS_API_KEY;
-  const asaasBase = process.env.ASAAS_API_URL || 'https://api.asaas.com/v3';
-  if (!url || !serviceKey) return res.status(500).json({ error: 'Supabase server configuration missing.' });
+  const asaasBase = String(process.env.ASAAS_API_URL || 'https://api.asaas.com/v3').replace(/\/$/, '');
+  if (!serviceKey) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY não configurado.' });
 
-  const api = (path, options = {}) => fetch(`${url}${path}`, {
-    ...options,
-    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', ...(options.headers || {}) }
-  });
+  const api = async (path, options = {}) => {
+    try {
+      return await fetch(`${url}${path}`, {
+        ...options,
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', ...(options.headers || {}) }
+      });
+    } catch (error) {
+      throw new Error(`Supabase fetch failed: ${error?.message || 'network error'}`);
+    }
+  };
 
-  const asaas = (path, options = {}) => fetch(`${asaasBase}${path}`, {
-    ...options,
-    headers: { access_token: asaasKey || '', 'Content-Type': 'application/json', ...(options.headers || {}) }
-  });
+  const asaas = async (path, options = {}) => {
+    if (!asaasKey) throw new Error('ASAAS_API_KEY não configurada para consulta do cliente Asaas.');
+    try {
+      return await fetch(`${asaasBase}${path}`, {
+        ...options,
+        headers: { access_token: asaasKey, 'Content-Type': 'application/json', ...(options.headers || {}) }
+      });
+    } catch (error) {
+      throw new Error(`Asaas fetch failed: ${error?.message || 'network error'}`);
+    }
+  };
 
   try {
     const event = req.body || {};
@@ -37,28 +55,24 @@ module.exports = async (req, res) => {
     if (!paidEvent && !overdueEvent && !cancelledEvent) return res.status(200).json({ ok: true, ignored: true, event: event.event });
 
     const byGateway = await api(`/rest/v1/payments?gateway_payment_id=eq.${encodeURIComponent(paymentId)}&select=id,student_id,due_date,status,external_reference,method&limit=1`);
-    if (!byGateway.ok) throw new Error('Não foi possível localizar o pagamento pelo ID do gateway.');
+    if (!byGateway.ok) throw new Error(`Não foi possível localizar o pagamento pelo ID do gateway (HTTP ${byGateway.status}).`);
     let localPayment = (await byGateway.json())?.[0] || null;
 
     if (!localPayment && external) {
       const byExternal = await api(`/rest/v1/payments?external_reference=eq.${encodeURIComponent(external)}&select=id,student_id,due_date,status,external_reference,method&limit=1`);
-      if (!byExternal.ok) throw new Error('Não foi possível localizar o pagamento pela referência externa.');
+      if (!byExternal.ok) throw new Error(`Não foi possível localizar o pagamento pela referência externa (HTTP ${byExternal.status}).`);
       localPayment = (await byExternal.json())?.[0] || null;
     }
 
     let studentId = localPayment?.student_id || studentIdFromExternal || '';
     let dueDate = localPayment?.due_date || dueDateFromExternal || payment.dueDate || '';
 
-    // Valida o aluno antes de alterar qualquer dado. Isso evita que uma referência antiga/incorreta
-    // (por exemplo, uma referência ligada ao administrador) provoque HTTP 500.
     if (studentId) {
       const sr = await api(`/rest/v1/students?id=eq.${encodeURIComponent(studentId)}&select=id`);
-      if (!sr.ok) throw new Error('Não foi possível validar o aluno.');
+      if (!sr.ok) throw new Error(`Não foi possível validar o aluno (HTTP ${sr.status}).`);
       if (!(await sr.json())?.[0]) studentId = '';
     }
 
-    // Cobranças criadas manualmente no Sandbox podem não ter externalReference.
-    // Nesses casos, resolve o aluno pelo cliente Asaas -> e-mail -> profile/student.
     if (!studentId && payment.customer && asaasKey) {
       const cr = await asaas(`/customers/${encodeURIComponent(String(payment.customer))}`);
       if (cr.ok) {
@@ -66,11 +80,11 @@ module.exports = async (req, res) => {
         const email = String(customer?.email || '').trim();
         if (email) {
           const pr = await api(`/rest/v1/profiles?email=eq.${encodeURIComponent(email)}&role=eq.student&select=id&limit=1`);
-          if (!pr.ok) throw new Error('Não foi possível localizar o perfil do aluno.');
+          if (!pr.ok) throw new Error(`Não foi possível localizar o perfil do aluno (HTTP ${pr.status}).`);
           const profile = (await pr.json())?.[0];
           if (profile?.id) {
             const sr = await api(`/rest/v1/students?id=eq.${encodeURIComponent(profile.id)}&select=id`);
-            if (!sr.ok) throw new Error('Não foi possível validar o aluno pelo perfil.');
+            if (!sr.ok) throw new Error(`Não foi possível validar o aluno pelo perfil (HTTP ${sr.status}).`);
             if ((await sr.json())?.[0]) studentId = profile.id;
           }
         }
@@ -78,11 +92,7 @@ module.exports = async (req, res) => {
     }
 
     if (!dueDate) dueDate = payment.dueDate || '';
-    if (!studentId || !dueDate) {
-      // Evento válido, porém sem vínculo suficiente para reconciliação. Retornar 200 evita
-      // reentregas infinitas do Asaas para uma cobrança que não pertence ao histórico local.
-      return res.status(200).json({ ok: true, ignored: true, reason: 'missing_student_or_due_date' });
-    }
+    if (!studentId || !dueDate) return res.status(200).json({ ok: true, ignored: true, reason: 'missing_student_or_due_date' });
 
     const status = paidEvent ? 'paid' : overdueEvent ? 'late' : 'pending';
     const method = payment.billingType === 'PIX' ? 'Pix' : payment.billingType === 'CREDIT_CARD' ? 'Cartão' : (localPayment?.method || 'Pix');
@@ -102,13 +112,13 @@ module.exports = async (req, res) => {
 
     if (localPayment?.id) {
       const update = await api(`/rest/v1/payments?id=eq.${encodeURIComponent(localPayment.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(paymentData) });
-      if (!update.ok) throw new Error('Não foi possível atualizar o histórico de pagamento.');
+      if (!update.ok) throw new Error(`Não foi possível atualizar o histórico de pagamento (HTTP ${update.status}).`);
     } else {
       const insert = await api('/rest/v1/payments', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ student_id: studentId, due_date: dueDate, ...paymentData }) });
-      if (!insert.ok && insert.status !== 409) throw new Error('Não foi possível registrar o pagamento recebido.');
+      if (!insert.ok && insert.status !== 409) throw new Error(`Não foi possível registrar o pagamento recebido (HTTP ${insert.status}).`);
       if (!insert.ok) {
         const retry = await api(`/rest/v1/payments?student_id=eq.${encodeURIComponent(studentId)}&due_date=eq.${encodeURIComponent(dueDate)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(paymentData) });
-        if (!retry.ok) throw new Error('Não foi possível reconciliar o pagamento concorrente.');
+        if (!retry.ok) throw new Error(`Não foi possível reconciliar o pagamento concorrente (HTTP ${retry.status}).`);
       }
     }
 
@@ -118,7 +128,7 @@ module.exports = async (req, res) => {
       if (!student.ok || !students?.[0]) return res.status(200).json({ ok: true, ignored: true, reason: 'student_not_found' });
 
       const st = await api(`/rest/v1/students?id=eq.${encodeURIComponent(studentId)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'paid' }) });
-      if (!st.ok) throw new Error('Não foi possível atualizar o status do aluno.');
+      if (!st.ok) throw new Error(`Não foi possível atualizar o status do aluno (HTTP ${st.status}).`);
 
       const value = Number(payment.value || 0).toFixed(2).replace('.', ',');
       const nr = await api('/rest/v1/notifications', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ user_id: studentId, title: 'Pagamento confirmado', message: `Sua mensalidade de R$ ${value} foi confirmada.`, type: 'payment', dedupe_key: `payment:${paymentId}:student` }) });
