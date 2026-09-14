@@ -1,5 +1,5 @@
 // Dunamis Fit — recebe e reconcilia eventos de pagamento do Asaas.
-// O webhook é idempotente e aceita tanto cobranças criadas pelo app quanto testes criados no Sandbox.
+// O webhook é idempotente e aceita cobranças criadas pelo app e testes do Sandbox.
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -7,12 +7,9 @@ module.exports = async (req, res) => {
   if (!expected) return res.status(500).json({ error: 'ASAAS_WEBHOOK_TOKEN não configurado.' });
   if (req.headers['asaas-access-token'] !== expected) return res.status(401).json({ error: 'Unauthorized' });
 
-  // Este é o mesmo projeto Supabase usado pelo frontend do Dunamis Fit.
-  // Mantemos o fallback para evitar que uma variável SUPABASE_URL inválida quebre o webhook.
-  const configuredUrl = String(process.env.SUPABASE_URL || '').trim();
-  const url = /^https:\/\/[^\s/]+(?:\/.*)?$/i.test(configuredUrl)
-    ? configuredUrl.replace(/\/$/, '')
-    : 'https://lfcgxwbhvyqyfusiqbmz.supabase.co';
+  // O projeto Supabase do Dunamis Fit é fixo. Não dependemos de SUPABASE_URL,
+  // pois uma variável de ambiente malformada estava provocando "fetch failed".
+  const url = 'https://lfcgxwbhvyqyfusiqbmz.supabase.co';
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const asaasKey = process.env.ASAAS_API_KEY;
   const asaasBase = String(process.env.ASAAS_API_URL || 'https://api.asaas.com/v3').replace(/\/$/, '');
@@ -20,10 +17,11 @@ module.exports = async (req, res) => {
 
   const api = async (path, options = {}) => {
     try {
-      return await fetch(`${url}${path}`, {
+      const response = await fetch(`${url}${path}`, {
         ...options,
         headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', ...(options.headers || {}) }
       });
+      return response;
     } catch (error) {
       throw new Error(`Supabase fetch failed: ${error?.message || 'network error'}`);
     }
@@ -138,7 +136,7 @@ module.exports = async (req, res) => {
       const adminRows = admins.ok ? await admins.json() : [];
       for (const admin of adminRows || []) {
         const ar = await api('/rest/v1/notifications', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ user_id: admin.id, title: 'Pagamento confirmado', message: `Pagamento de mensalidade confirmado: R$ ${value}.`, type: 'payment_received_admin', dedupe_key: `payment:${paymentId}:admin:${admin.id}` }) });
-        if (!ar.ok && ar.status !== 409) console.error('Dunamis Fit: falha ao notificar administrador.');
+        if (!ar.ok && ar.status !== 409) console.error('Dunamis Fit: falha ao criar notificação do administrador.');
       }
     }
 
