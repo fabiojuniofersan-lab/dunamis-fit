@@ -20,8 +20,8 @@
       if(paymentsBtn) paymentsBtn.insertAdjacentElement('beforebegin',btn); else nav.appendChild(btn);
     }
     // Sempre sincroniza o estado visual; não deixa o botão preso como ativo.
-    btn.classList.toggle('active',window.page==='development');
-    btn.onclick=()=>{ window.page='development'; if(typeof window.render==='function')window.render(); };
+    btn.classList.toggle('active',page==='development');
+    btn.onclick=()=>{ page='development'; if(typeof window.render==='function')window.render(); };
   }
 
   function selected(){
@@ -30,7 +30,7 @@
   }
 
   function injectSelector(){
-    if(!window.current || window.current.role!=='admin' || window.page!=='development') return;
+    if(!window.current || window.current.role!=='admin' || page!=='development') return;
     const main=document.querySelector('.main');
     if(!main) return;
     syncDevelopmentNav();
@@ -49,7 +49,7 @@
       const id=select.value || null;
       if(id && !list.some(x=>String(x.id)===String(id))) return;
       selectedStudentId=id;
-      window.page='development';
+      page='development';
       if(typeof window.render==='function')window.render();
     });
   }
