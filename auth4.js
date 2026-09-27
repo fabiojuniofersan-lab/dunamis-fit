@@ -8,10 +8,10 @@
   async function refreshCloudData(){
     if(!current)return;
     if(current.role==='admin'){
-      const [pr,st,ev,pa]=await Promise.all([sb.from('profiles').select('*').order('full_name'),sb.from('students').select('*'),sb.from('evaluations').select('*').order('evaluation_date',{ascending:true}),sb.from('payments').select('*').order('due_date',{ascending:false})]);
-      if(pr.error)throw pr.error;if(st.error)throw st.error;if(ev.error)throw ev.error;if(pa.error)throw pa.error;
+      const [pr,st,ev,pa,n]=await Promise.all([sb.from('profiles').select('*').order('full_name'),sb.from('students').select('*'),sb.from('evaluations').select('*').order('evaluation_date',{ascending:true}),sb.from('payments').select('*').order('due_date',{ascending:false}),sb.from('notifications').select('*').eq('user_id',current.studentId).order('created_at',{ascending:false})]);
+      if(pr.error)throw pr.error;if(st.error)throw st.error;if(ev.error)throw ev.error;if(pa.error)throw pa.error;if(n.error)throw n.error;
       data.students=(st.data||[]).map(s=>{const p=(pr.data||[]).find(x=>x.id===s.id);return p?mapStudent(p,s,(ev.data||[]).filter(x=>x.student_id===s.id),(pa.data||[]).filter(x=>x.student_id===s.id)):null}).filter(Boolean);
-      data.payments=(pa.data||[]).map(x=>({id:x.id,studentId:x.student_id,amount:Number(x.amount||0),value:Number(x.amount||0),dueDate:x.due_date,paidAt:x.paid_at,paid_at:x.paid_at,method:x.method,status:x.status,date:x.paid_at?String(x.paid_at).slice(0,10):x.due_date}));data.notifications=[];saveLocal();
+      data.payments=(pa.data||[]).map(x=>({id:x.id,studentId:x.student_id,amount:Number(x.amount||0),value:Number(x.amount||0),dueDate:x.due_date,paidAt:x.paid_at,paid_at:x.paid_at,method:x.method,status:x.status,date:x.paid_at?String(x.paid_at).slice(0,10):x.due_date}));data.notifications=n.data||[];saveLocal();
     }else{
       const id=current.studentId;const [p,s,e,pa,n]=await Promise.all([sb.from('profiles').select('*').eq('id',id).maybeSingle(),sb.from('students').select('*').eq('id',id).maybeSingle(),sb.from('evaluations').select('*').eq('student_id',id).order('evaluation_date',{ascending:true}),sb.from('payments').select('*').eq('student_id',id).order('due_date',{ascending:false}),sb.from('notifications').select('*').eq('user_id',id).order('created_at',{ascending:false})]);
       if(p.error)throw p.error;if(s.error)throw s.error;if(e.error)throw e.error;if(pa.error)throw pa.error;if(n.error)throw n.error;
