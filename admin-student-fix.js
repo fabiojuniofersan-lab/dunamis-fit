@@ -42,6 +42,15 @@
         if(pr.error)throw new Error('Não foi possível salvar o sexo/dados do aluno: '+pr.error.message);
         const st=await sb.from('students').update({plan,monthly_value:value,due_day:Math.min(Math.max(due||10,1),31),start_date:start||null,payment_method:paymentMethod}).eq('id',id);
         if(st.error)throw new Error('Dados financeiros não foram salvos: '+st.error.message);
+        if(weight&&height){
+          const {data:latest,error:latestError}=await sb.from('evaluations').select('id,weight,height,evaluation_date').eq('student_id',id).order('evaluation_date',{ascending:false}).limit(1).maybeSingle();
+          if(latestError)throw new Error('Não foi possível consultar a avaliação física: '+latestError.message);
+          const changed=!latest||Number(latest.weight)!==weight||Number(latest.height)!==height;
+          if(changed){
+            const ev=await sb.from('evaluations').insert({student_id:id,evaluation_date:new Date().toISOString().slice(0,10),weight,height,sex:gender==='Feminino'?'female':gender==='Masculino'?'male':null});
+            if(ev.error)throw new Error('Peso e altura não foram salvos: '+ev.error.message);
+          }
+        }
         if(password)throw new Error('Os dados foram salvos, mas a nova senha não pôde ser alterada enquanto a função do servidor estiver indisponível.');
       }
       await refreshCloudData();
