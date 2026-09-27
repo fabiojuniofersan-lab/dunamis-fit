@@ -11,6 +11,8 @@
     const email=String(document.getElementById('se')?.value||'').trim().toLowerCase();
     const password=String(document.getElementById('spw')?.value||'');
     const phone=String(document.getElementById('sp')?.value||'').trim();
+    const genderEl=[...document.querySelectorAll('.modal .field')].find(el=>/sexo/i.test(el.querySelector('label')?.textContent||''))?.querySelector('select,input');
+    const gender=genderEl?.value||null;
     const plan=document.getElementById('spl')?.value||'4 dias por semana';
     const value=Number(document.getElementById('sv')?.value)||PLANS[plan];
     const due=Number(document.getElementById('sd')?.value||10);
@@ -27,7 +29,7 @@
     const button=document.querySelector('.modal .btn.primary');
     if(button){button.disabled=true;button.textContent='Salvando...'}
     try{
-      const response=await fetch('/api/admin-student',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${sessionData.session.access_token}`},body:JSON.stringify({id:id||null,name,birth,email,password:password||null,phone,plan,value,due,start,paymentMethod,weight:weight||null,height:height||null,status:old?.status||'pending'})});
+      const response=await fetch('/api/admin-student',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${sessionData.session.access_token}`},body:JSON.stringify({id:id||null,name,birth,email,password:password||null,phone,gender,plan,value,due,start,paymentMethod,weight:weight||null,height:height||null,status:old?.status||'pending'})});
       const result=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(result.error||'Não foi possível salvar o aluno.');
       await refreshCloudData();
