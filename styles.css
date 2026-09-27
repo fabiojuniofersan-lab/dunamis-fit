@@ -15,3 +15,36 @@
 .main:has(#metabolic-panel) .panel .panel-head strong{color:#ff6500}
 .main:has(#metabolic-panel) select{background:#202020!important;color:#f5f5f5;border-color:#444!important}
 .main:has(#metabolic-panel) .notice.success{background:#183522;color:#d9f5e2;border-left-color:#ff6500}
+
+/* Desenvolvimento — cards superiores com acabamento laranja 3D */
+.main:has(#metabolic-panel) .stat{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(255,112,20,.28);
+  background:
+    linear-gradient(180deg,rgba(255,102,0,.10) 0,rgba(255,102,0,.025) 16px,transparent 42px),
+    linear-gradient(145deg,#242424,#171717);
+  box-shadow:0 10px 28px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,140,60,.10);
+}
+.main:has(#metabolic-panel) .stat::before{
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;
+  height:5px;
+  background:linear-gradient(90deg,#ff5a00,#ff8a24,#ff5a00);
+  box-shadow:0 2px 10px rgba(255,90,0,.45);
+}
+.main:has(#metabolic-panel) .stat::after{
+  content:"";
+  position:absolute;
+  top:5px;left:0;right:0;
+  height:1px;
+  background:rgba(255,180,110,.35);
+}
+.main:has(#metabolic-panel) .stat b{color:#fff}
+.main:has(#metabolic-panel) .stat small:first-child{color:#ff9a52}
+.main:has(#metabolic-panel) .stat:hover{
+  transform:translateY(-2px);
+  border-color:rgba(255,112,20,.50);
+  box-shadow:0 14px 32px rgba(0,0,0,.34),0 0 18px rgba(255,90,0,.10),inset 0 1px 0 rgba(255,160,80,.16);
+}
