@@ -29,9 +29,21 @@
     const button=document.querySelector('.modal .btn.primary');
     if(button){button.disabled=true;button.textContent='Salvando...'}
     try{
-      const response=await fetch('/api/admin-student',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${sessionData.session.access_token}`},body:JSON.stringify({id:id||null,name,birth,email,password:password||null,phone,gender,plan,value,due,start,paymentMethod,weight:weight||null,height:height||null,status:old?.status||'pending'})});
-      const result=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(result.error||'Não foi possível salvar o aluno.');
+      const payload={id:id||null,name,birth,email,password:password||null,phone,gender,plan,value,due,start,paymentMethod,weight:weight||null,height:height||null,status:old?.status||'pending'};
+      let response;
+      try{
+        response=await fetch('/api/admin-student',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${sessionData.session.access_token}`},body:JSON.stringify(payload)});
+        const result=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(result.error||'Não foi possível salvar o aluno.');
+      }catch(apiError){
+        // Fallback para edição: permite atualizar os dados administrativos mesmo se a função da Vercel estiver indisponível.
+        if(!id)throw apiError;
+        const pr=await sb.from('profiles').update({full_name:name,email,phone:phone||null,birth_date:birth||null,gender:gender||null}).eq('id',id);
+        if(pr.error)throw new Error('Não foi possível salvar o sexo/dados do aluno: '+pr.error.message);
+        const st=await sb.from('students').update({plan,monthly_value:value,due_day:Math.min(Math.max(due||10,1),31),start_date:start||null,payment_method:paymentMethod}).eq('id',id);
+        if(st.error)throw new Error('Dados financeiros não foram salvos: '+st.error.message);
+        if(password)throw new Error('Os dados foram salvos, mas a nova senha não pôde ser alterada enquanto a função do servidor estiver indisponível.');
+      }
       await refreshCloudData();
       render();
       alert(id?'Aluno atualizado com sucesso.':'Aluno cadastrado com sucesso.');
