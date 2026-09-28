@@ -32,7 +32,7 @@
       const payload={id:id||null,name,birth,email,password:password||null,phone,gender,plan,value,due,start,paymentMethod,weight:weight||null,height:height||null,status:old?.status||'pending'};
       let response;
       try{
-        response=await fetch('/api/admin-student',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${sessionData.session.access_token}`},body:JSON.stringify(payload)});
+        response=await fetch(`${window.DUNAMIS_SUPABASE_URL}/functions/v1/admin-student`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${sessionData.session.access_token}`},body:JSON.stringify(payload)});
         const result=await response.json().catch(()=>({}));
         if(!response.ok)throw new Error(result.error||'Não foi possível salvar o aluno.');
       }catch(apiError){
