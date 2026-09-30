@@ -12,7 +12,7 @@
       const box=document.createElement('div');
       box.className='field';
       const editing=modal.querySelector('h3')?.textContent?.startsWith('Editar');
-      box.innerHTML='<label>Senha de acesso</label><input id="spw" type="password" autocomplete="new-password" placeholder="'+(editing?'Deixe em branco para manter':'Mínimo de 6 caracteres')+'">';
+      box.innerHTML='<label>Senha de acesso</label><input id="spw" type="password" autocomplete="new-password" placeholder="'+(editing?'Senha já cadastrada — deixe em branco para manter':'Mínimo de 6 caracteres')+'">';
       if(payment && payment.nextSibling) form.insertBefore(box,payment.nextSibling); else form.appendChild(box);
     }
 
