@@ -7,7 +7,7 @@
 
   async function loadAdminNotifications(){
     if (!window.current || window.current.role !== 'admin' || !window.dunamisSupabase) return;
-    const { data, error } = await window.dunamisSupabase.from('notifications').select('*').eq('user_id', window.current.studentId).order('created_at', { ascending: false }).limit(100);
+    const { data, error } = await window.dunamisSupabase.from('notifications').select('*').eq('user_id', window.current.studentId).gte('created_at', new Date(Date.now()-30*24*60*60*1000).toISOString()).order('created_at', { ascending: false }).limit(100);
     if (error) throw error;
     const list=data||[];
     const ids=[...new Set(list.map(n=>String(n.message||'').match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i)?.[0]).filter(Boolean))];
