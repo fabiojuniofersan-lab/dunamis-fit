@@ -38,10 +38,13 @@
       if(pe)throw pe;
       const {error:ue}=await sb.from('students').update({status:'paid'}).eq('id',studentId);if(ue)throw ue;
       const adminId=String(current.id||current.userId||current.studentId||'');
+      let studentName=studentId;
+      const {data:profile}=await sb.from('profiles').select('full_name').eq('id',studentId).maybeSingle();
+      if(profile?.full_name)studentName=profile.full_name;
       if(adminId){
         const dedupe=`manual_payment:${studentId}:${dueDate}:${adminId}`;
         const {data:already}=await sb.from('notifications').select('id').eq('dedupe_key',dedupe).limit(1);
-        if(!already?.length)await sb.from('notifications').insert({user_id:adminId,title:'Pagamento confirmado',message:`Pagamento confirmado: ${studentId} — R$ ${money(student.monthly_value)}`,type:'payment',dedupe_key:dedupe});
+        if(!already?.length)await sb.from('notifications').insert({user_id:adminId,title:'Pagamento confirmado',message:`Pagamento confirmado: ${studentName} — R$ ${money(student.monthly_value)}`,type:'payment',dedupe_key:dedupe});
       }
       if(window.refreshCloudData)await window.refreshCloudData();
       if(window.render)window.render();
