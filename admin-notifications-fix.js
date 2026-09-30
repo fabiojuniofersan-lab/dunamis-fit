@@ -9,7 +9,19 @@
     if (!window.current || window.current.role !== 'admin' || !window.dunamisSupabase) return;
     const { data, error } = await window.dunamisSupabase.from('notifications').select('*').eq('user_id', window.current.studentId).order('created_at', { ascending: false }).limit(100);
     if (error) throw error;
-    window.data.notifications = data || [];
+    const list=data||[];
+    const ids=[...new Set(list.map(n=>String(n.message||'').match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i)?.[0]).filter(Boolean))];
+    let names={};
+    if(ids.length){
+      const {data:profiles}=await window.dunamisSupabase.from('profiles').select('id,full_name').in('id',ids);
+      (profiles||[]).forEach(p=>names[String(p.id)]=p.full_name);
+    }
+    window.data.notifications=list.map(n=>{
+      let message=n.message||'';
+      const match=message.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+      if(match&&names[match[0]])message=message.replace(match[0],names[match[0]]);
+      return {...n,message};
+    });
   }
 
   function subscribeRealtime(){
