@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
   const dueDateFor=d=>new Date(Date.UTC(year,month-1,Math.min(Math.max(Number(d)||1,1),daysInMonth)));
   const iso=d=>d.toISOString().slice(0,10), money=v=>Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const period=`${year}-${String(month).padStart(2,'0')}`;
-  const nextMonth=new Date(Date.UTC(year,month,1)), nextYear=nextMonth.getUTCFullYear(), nextMonthNumber=nextMonth.getUTCMonth()+1;
+  const cutoffDate=new Date(today.getTime()-30*86400000), cutoffIso=iso(cutoffDate);\n    const cleanup=await api(`/rest/v1/notifications?created_at=lt.${cutoffIso}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});\n    if(!cleanup.ok)throw new Error('Não foi possível limpar notificações antigas.');\n    const nextMonth=new Date(Date.UTC(year,month,1)), nextYear=nextMonth.getUTCFullYear(), nextMonthNumber=nextMonth.getUTCMonth()+1;
   const nextMonthIso=`${nextYear}-${String(nextMonthNumber).padStart(2,'0')}-01`;
   try{
     const [sr,pr,payr]=await Promise.all([
