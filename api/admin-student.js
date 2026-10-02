@@ -70,7 +70,7 @@ module.exports = async (req, res) => {
         const age = birth ? Math.max(0, new Date(evaluationDate+'T00:00:00').getFullYear() - new Date(birth+'T00:00:00').getFullYear() - ((new Date(evaluationDate+'T00:00:00').getMonth()<new Date(birth+'T00:00:00').getMonth() || (new Date(evaluationDate+'T00:00:00').getMonth()===new Date(birth+'T00:00:00').getMonth() && new Date(evaluationDate+'T00:00:00').getDate()<new Date(birth+'T00:00:00').getDate())) ? 1 : 0)) : null;
         const factor = String(plan||'').startsWith('3') ? 1.30 : String(plan||'').startsWith('4') ? 1.50 : String(plan||'').startsWith('5') ? 1.70 : null;
         const bmi = Number(weight)>0 && Number(height)>0 ? Number((Number(weight)/(Number(height)*Number(height))).toFixed(1)) : null;
-        const tmb = normalizedSex && age!=null ? Math.round(normalizedSex==='female' ? 10*Number(weight)+6.25*Number(height)*100-5*age-161 : 10*Number(weight)+6.25*Number(height)*100-5*age+5) : null;
+        const tmb = normalizedSex && age!=null ? Math.round(normalizedSex==='female' ? 10*Number(weight)+6.25*Number(height)*100-5*age-161 : 10*Number(weight)+6.25*normalizedHeight*100-5*age+5) : null;
         const get = tmb && factor ? Math.round(tmb*factor) : null;
         const ee = await api('/rest/v1/evaluations', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ student_id: uid, evaluation_date: evaluationDate, weight: Number(weight), height: Number(height), sex: normalizedSex, age_at_evaluation: age, plan_at_evaluation: plan || null, activity_factor: factor, bmi, tmb, get }) });
         if (!ee.ok) throw new Error('Não foi possível salvar a avaliação física.');
