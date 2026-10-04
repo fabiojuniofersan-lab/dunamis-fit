@@ -25,14 +25,50 @@
   window.resetPassword=async function(){const e=String(document.getElementById('email')?.value||'').trim().toLowerCase();if(!e)return alert('Informe seu e-mail primeiro.');const {error}=await sb.auth.resetPasswordForEmail(e,{redirectTo:location.origin+location.pathname});if(error)return alert('Não foi possível enviar o e-mail de recuperação.');alert('Se o e-mail estiver cadastrado, enviaremos as instruções para redefinir a senha.')};
   window.saveStudent=async function(id){
     if(!current||current.role!=='admin')return alert('Somente o administrador pode cadastrar alunos.');
-    const old=id?data.students.find(x=>String(x.id)===String(id)):null;
-    const name=String(document.getElementById('sn')?.value||'').trim(),birth=document.getElementById('sb')?.value||'',email=String(document.getElementById('se')?.value||'').trim().toLowerCase(),password=String(document.getElementById('spw')?.value||''),phone=String(document.getElementById('sp')?.value||'').trim(),plan=document.getElementById('spl')?.value||'4 dias por semana',value=Number(document.getElementById('sv')?.value)||PLANS[plan],due=Number(document.getElementById('sd')?.value||10),start=document.getElementById('sst')?.value||'',paymentMethod=document.getElementById('spm')?.value||'Pix',gender=String(document.getElementById('sgender')?.value||'').trim(),weight=Number(document.getElementById('sw')?.value||0),heightRaw=Number(document.getElementById('sh')?.value||0),height=heightRaw>3?heightRaw/100:heightRaw;
-    if(!name||!email)return alert('Informe nome e e-mail.');if(!id&&password.length<6)return alert('A senha deve ter pelo menos 6 caracteres.');if(id&&password&&password.length<6)return alert('A nova senha deve ter pelo menos 6 caracteres.');if(data.students.some(x=>x.email===email&&String(x.id)!==String(id)))return alert('Este e-mail já está cadastrado.');
-    try{const {data:sessionData}=await sb.auth.getSession();const token=sessionData?.session?.access_token;if(!token)throw new Error('Sessão do administrador expirada. Entre novamente.');const response=await fetch(`${window.DUNAMIS_SUPABASE_URL}/functions/v1/admin-student`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({id:id||null,name,birth,email,password:password||null,phone,gender,plan,value,due,start,paymentMethod,weight,height,status:old?.status||'pending'})});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||'Não foi possível salvar o aluno.');
-      // Garantia adicional: persiste o sexo diretamente no perfil autenticado do administrador.
-      // Isso evita que uma versão antiga da API deixe o cadastro com sexo nulo.
-      if(gender){const targetId=result.id||id;const {data:genderSaved,error:genderError}=await sb.from('profiles').update({gender}).eq('id',targetId).select('id,gender').maybeSingle();if(genderError)throw new Error('Aluno salvo, mas não foi possível salvar o sexo: '+genderError.message);if(!genderSaved||genderSaved.gender!==gender)throw new Error('O sexo não foi confirmado no banco de dados.');}
-      await refreshCloudData();render();if(!old)alert('Aluno cadastrado com sucesso.');}catch(err){console.error(err);alert('Não foi possível salvar o aluno: '+(err?.message||'erro desconhecido'))}
+    const oldStudent=id?data.students.find(x=>String(x.id)===String(id)):null;
+    const name=String(document.getElementById('sn')?.value||'').trim();
+    const birth=document.getElementById('sb')?.value||'';
+    const email=String(document.getElementById('se')?.value||'').trim().toLowerCase();
+    const password=String(document.getElementById('spw')?.value||'');
+    const phone=String(document.getElementById('sp')?.value||'').trim();
+    const plan=document.getElementById('spl')?.value||'4 dias por semana';
+    const value=Number(document.getElementById('sv')?.value)||PLANS[plan];
+    const due=Number(document.getElementById('sd')?.value||10);
+    const start=document.getElementById('sst')?.value||'';
+    const paymentMethod=document.getElementById('spm')?.value||'Pix';
+    const genderEl=document.getElementById('sgender');
+    const gender=genderEl ? String(genderEl.value||'').trim() : String(oldStudent?.gender||'').trim();
+    const weight=Number(document.getElementById('sw')?.value||0);
+    const heightRaw=Number(document.getElementById('sh')?.value||0);
+    const height=heightRaw>3?heightRaw/100:heightRaw;
+    if(!name||!email)return alert('Informe nome e e-mail.');
+    if(!id&&password.length<6)return alert('A senha deve ter pelo menos 6 caracteres.');
+    if(id&&password&&password.length<6)return alert('A nova senha deve ter pelo menos 6 caracteres.');
+    if(data.students.some(x=>x.email===email&&String(x.id)!==String(id)))return alert('Este e-mail já está cadastrado.');
+    try{
+      const {data:sessionData}=await sb.auth.getSession();
+      const token=sessionData?.session?.access_token;
+      if(!token)throw new Error('Sessão do administrador expirada. Entre novamente.');
+      const payload={id:id||null,name,birth,email,password:password||null,phone,gender,plan,value,due,start,paymentMethod,weight,height,status:oldStudent?.status||'pending'};
+      console.log('[Dunamis] salvando aluno:',{id:id||null,email,gender,payload});
+      const response=await fetch(`${window.DUNAMIS_SUPABASE_URL}/functions/v1/admin-student`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+        body:JSON.stringify(payload)
+      });
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(result.error||'Não foi possível salvar o aluno.');
+      const savedGender=String(result.gender||'');
+      if(gender && savedGender!==gender)throw new Error('O servidor não confirmou o sexo selecionado. Recebido: '+(savedGender||'vazio'));
+      await refreshCloudData();
+      const saved=data.students.find(x=>String(x.id)===String(result.id||id));
+      if(gender && saved && saved.gender!==gender)throw new Error('O sexo foi salvo no servidor, mas a tela recebeu um valor diferente.');
+      render();
+      if(!oldStudent)alert('Aluno cadastrado com sucesso.');
+    }catch(err){
+      console.error('[Dunamis] erro ao salvar aluno:',err);
+      alert('Não foi possível salvar o aluno: '+(err?.message||'erro desconhecido'));
+    }
   };
   window.saveEvaluation=async function(id){if(!current||current.role!=='admin')return alert('Somente o administrador pode registrar avaliações.');const w=Number(document.getElementById('ew')?.value||0),rawH=Number(document.getElementById('eh')?.value||0),h=rawH>3?rawH/100:rawH,d=document.getElementById('ed')?.value||dateNow(),sex=document.getElementById('esex')?.value||null;if(!w||!h)return alert('Informe peso e altura.');const {data:latest,error:qe}=await sb.from('evaluations').select('weight,height,evaluation_date').eq('student_id',id).order('evaluation_date',{ascending:false}).limit(1);if(qe)return alert('Não foi possível consultar a avaliação anterior.');const previous=latest?.[0];if(previous&&Number(previous.weight)===w&&Number(previous.height)===h&&String(previous.evaluation_date)===String(d))return alert('Essa avaliação já está registrada.');const {error}=await sb.from('evaluations').insert({student_id:id,evaluation_date:d,weight:w,height:h,sex});if(error)return alert('Não foi possível salvar a avaliação.');if(sex){const gender=sex==='female'?'Feminino':'Masculino';const {error:ge}=await sb.from('profiles').update({gender}).eq('id',id);if(ge)return alert('Avaliação salva, mas não foi possível salvar o sexo do aluno.');}await refreshCloudData();render()};
   window.pay=async function(id){if(!current||current.role!=='admin')return alert('Somente o administrador pode confirmar pagamentos.');const s=data.students.find(x=>String(x.id)===String(id));if(!s)return;const due=monthDue(s.due);const {data:existing,error:qe}=await sb.from('payments').select('*').eq('student_id',s.id).eq('due_date',due).maybeSingle();if(qe)return alert('Não foi possível consultar o pagamento.');let error;if(existing){({error}=await sb.from('payments').update({amount:s.value,paid_at:new Date().toISOString(),method:s.paymentMethod,status:'paid'}).eq('id',existing.id))}else{({error}=await sb.from('payments').insert({student_id:s.id,amount:s.value,due_date:due,paid_at:new Date().toISOString(),method:s.paymentMethod,status:'paid'}))}if(error)return alert('Não foi possível confirmar o pagamento.');await sb.from('students').update({status:'paid'}).eq('id',s.id);await sb.from('notifications').insert({user_id:current.studentId,title:'Pagamento confirmado',message:`Pagamento confirmado: ${s.name} — R$ ${money(s.value)}`,type:'payment'});await refreshCloudData();alert('Pagamento confirmado com sucesso.');render()};
