@@ -32,11 +32,16 @@ module.exports = async (req, res) => {
 
     let uid = id || null;
     let previousStudent = null;
+    let previousGender = null;
     if (uid) {
       const sr = await api(`/rest/v1/students?id=eq.${encodeURIComponent(uid)}&select=status,plan,monthly_value,due_day,start_date,payment_method`);
       const students = await sr.json();
       if (!sr.ok) throw new Error('Não foi possível consultar os dados atuais do aluno.');
       previousStudent = students?.[0] || null;
+      const pg = await api(`/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=gender`);
+      const pgd = await pg.json();
+      if (!pg.ok) throw new Error('Não foi possível consultar o sexo atual do aluno.');
+      previousGender = pgd?.[0]?.gender || null;
 
       const update = { email, email_confirm: true, user_metadata: { full_name: name } };
       if (password) update.password = password;
@@ -51,7 +56,7 @@ module.exports = async (req, res) => {
       if (!uid) throw new Error('A conta do aluno não retornou um identificador.');
     }
 
-    const pe = await api('/rest/v1/profiles?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, role: 'student', full_name: name, email, phone: phone || null, birth_date: birth || null, gender: gender || null }) });
+    const pe = await api('/rest/v1/profiles?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: uid, role: 'student', full_name: name, email, phone: phone || null, birth_date: birth || null, gender: gender || previousGender || null }) });
     if (!pe.ok) throw new Error('Não foi possível salvar o perfil do aluno.');
 
     const preservedStatus = previousStudent?.status || 'pending';
