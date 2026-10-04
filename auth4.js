@@ -37,7 +37,8 @@
     const start=document.getElementById('sst')?.value||'';
     const paymentMethod=document.getElementById('spm')?.value||'Pix';
     const genderEl=document.getElementById('sgender');
-    const gender=genderEl ? String(genderEl.value||'').trim() : String(oldStudent?.gender||'').trim();
+    const selectedGender=genderEl ? String(genderEl.value||genderEl.dataset?.selectedGender||'').trim() : '';
+    const gender=selectedGender || String(oldStudent?.gender||'').trim();
     const weight=Number(document.getElementById('sw')?.value||0);
     const heightRaw=Number(document.getElementById('sh')?.value||0);
     const height=heightRaw>3?heightRaw/100:heightRaw;
@@ -58,7 +59,7 @@
       });
       const result=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(result.error||'Não foi possível salvar o aluno.');
-      const savedGender=String(result.gender||'');
+      const savedGender=String(result.gender||'').trim();
       if(gender && savedGender!==gender)throw new Error('O servidor não confirmou o sexo selecionado. Recebido: '+(savedGender||'vazio'));
       await refreshCloudData();
       const saved=data.students.find(x=>String(x.id)===String(result.id||id));
