@@ -83,7 +83,7 @@
       <div class="field"><label>Data de nascimento</label><input id="sb" type="date" value="${esc(base.birth||'')}"></div>
       <div class="field"><label>E-mail de acesso *</label><input id="se" type="email" autocomplete="email" value="${esc(base.email)}"></div>
       <div class="field"><label>WhatsApp</label><input id="sp" value="${esc(base.phone||'')}"></div>
-      <div class="field"><label>Sexo</label><select id="sg"><option value="">Selecione</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option><option value="Outro">Outro</option><option value="Prefiro não informar">Prefiro não informar</option></select></div>
+      <div class="field"><label>Sexo</label><select id="sgender" required><option value="">Selecione o sexo</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option><option value="Outro">Outro</option><option value="Prefiro não informar">Prefiro não informar</option></select></div>
       <div class="field"><label>${id?'Nova senha (opcional)':'Senha de acesso *'}</label><input id="spw" type="password" autocomplete="new-password" placeholder="Mínimo de 6 caracteres"></div>
       <div class="field"><label>Plano</label><select id="spl"><option>3 dias por semana</option><option>4 dias por semana</option><option>5 dias por semana</option></select></div>
       <div class="field"><label>Valor mensal</label><input id="sv" type="number" step="0.01" value="${Number(base.value)||0}"></div>
@@ -93,7 +93,7 @@
       <div class="field"><label>Peso atual (kg)</label><input id="sw" type="number" step="0.1" value="${ev.length?Number(ev[ev.length-1]?.weight||''):''}"></div>
       <div class="field"><label>Altura (m)</label><input id="sh" type="number" step="0.01" value="${ev.length?Number(ev[ev.length-1]?.height||''):''}"></div>
     </div><div class="actions"><button class="btn secondary" onclick="render()">Cancelar</button><button class="btn primary" onclick="saveStudent('${id||''}')">Salvar aluno</button></div></div></div>`);
-    spl.value=base.plan||'4 dias por semana'; spm.value=base.paymentMethod||'Pix'; sg.value=base.gender||'';
+    spl.value=base.plan||'4 dias por semana'; spm.value=base.paymentMethod||'Pix'; const genderSelect=document.getElementById('sgender'); if(genderSelect) genderSelect.value=base.gender||'';
   };
 
   function mdStyles(){return `<style>
