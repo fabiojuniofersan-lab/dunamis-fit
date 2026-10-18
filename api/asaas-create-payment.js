@@ -4,7 +4,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  const url = process.env.SUPABASE_URL;
+  const url = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const asaasKey = process.env.ASAAS_API_KEY;
   const asaasBase = (process.env.ASAAS_API_URL || 'https://api.asaas.com/v3').trim().replace(/\/+$/, '');
@@ -35,7 +35,9 @@ module.exports = async (req, res) => {
 
     stage = 'SUPABASE_CALLER_PROFILE';
     const callerResponse = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role`);
-    const caller = (await callerResponse.json())?.[0];
+    const callerData = await callerResponse.json();
+    if (!callerResponse.ok) throw new Error(`Falha ao consultar perfil do usuário (HTTP ${callerResponse.status}).`);
+    const caller = callerData?.[0];
     if (!caller) return res.status(403).json({ error: 'Perfil do usuário não encontrado.' });
 
     // O aluno pode emitir sua própria cobrança; o administrador pode emitir para um aluno selecionado.
@@ -50,10 +52,14 @@ module.exports = async (req, res) => {
 
     stage = 'SUPABASE_STUDENT_PROFILE';
     const pr = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(studentId)}&select=id,full_name,email,phone,role`);
-    const profile = (await pr.json())?.[0];
+    const profileData = await pr.json();
+    if (!pr.ok) throw new Error(`Falha ao consultar dados do aluno (HTTP ${pr.status}).`);
+    const profile = profileData?.[0];
     stage = 'SUPABASE_STUDENT';
     const sr = await sb(`/rest/v1/students?id=eq.${encodeURIComponent(studentId)}&select=id,monthly_value,due_day,status,plan`);
-    const student = (await sr.json())?.[0];
+    const studentData = await sr.json();
+    if (!sr.ok) throw new Error(`Falha ao consultar cadastro do aluno (HTTP ${sr.status}).`);
+    const student = studentData?.[0];
     if (!profile || !student || profile.role !== 'student') return res.status(404).json({ error: 'Aluno não encontrado.' });
 
     const due = dueDateFor(student.due_day);
