@@ -36,13 +36,18 @@
     const due=Number(document.getElementById('sd')?.value||10);
     const start=document.getElementById('sst')?.value||'';
     const paymentMethod=document.getElementById('spm')?.value||'Pix';
-    const genderEl=document.getElementById('sgender');
-    const selectedGender=genderEl ? String(genderEl.value||genderEl.dataset?.selectedGender||'').trim() : '';
-    const gender=selectedGender || String(oldStudent?.gender||'').trim();
+    // Capture o valor diretamente do select do modal ativo para evitar
+    // perder a seleção em formulários renderizados novamente.
+    const genderEl=document.querySelector('.modal #sgender');
+    const selectedGender=String(genderEl?.selectedOptions?.[0]?.value || genderEl?.value || genderEl?.dataset?.selectedGender || '').trim();
+    const allowedGenders=['Feminino','Masculino','Outro','Prefiro não informar'];
+    const gender=allowedGenders.includes(selectedGender) ? selectedGender : String(oldStudent?.gender||'').trim();
+
     const weight=Number(document.getElementById('sw')?.value||0);
     const heightRaw=Number(document.getElementById('sh')?.value||0);
     const height=heightRaw>3?heightRaw/100:heightRaw;
     if(!name||!email)return alert('Informe nome e e-mail.');
+    if(!allowedGenders.includes(gender))return alert('Selecione o sexo do aluno antes de salvar.');
     if(!id&&password.length<6)return alert('A senha deve ter pelo menos 6 caracteres.');
     if(id&&password&&password.length<6)return alert('A nova senha deve ter pelo menos 6 caracteres.');
     if(data.students.some(x=>x.email===email&&String(x.id)!==String(id)))return alert('Este e-mail já está cadastrado.');
