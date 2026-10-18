@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
   const url = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const asaasKey = process.env.ASAAS_API_KEY;
-  const asaasBase = process.env.ASAAS_API_URL || 'https://api.asaas.com/v3';
+  const asaasBase = (process.env.ASAAS_API_URL || 'https://api.asaas.com/v3').trim().replace(/\/+$/, '');
   if (!token) return res.status(401).json({ error: 'Não autenticado.' });
   if (!url || !serviceKey || !asaasKey) return res.status(500).json({ error: 'Configuração do gateway ainda não foi concluída.' });
 
@@ -26,11 +26,14 @@ module.exports = async (req, res) => {
     return `${year}-${String(month).padStart(2, '0')}-${String(Math.min(Math.max(Number(day) || 10, 1), last)).padStart(2, '0')}`;
   };
 
+  let stage = 'SUPABASE_AUTH';
   try {
+    stage = 'SUPABASE_AUTH';
     const me = await fetch(`${url}/auth/v1/user`, { headers: { apikey: serviceKey, Authorization: `Bearer ${token}` } });
     const user = await me.json();
     if (!me.ok || !user?.id) return res.status(401).json({ error: 'Sessão inválida.' });
 
+    stage = 'SUPABASE_CALLER_PROFILE';
     const callerResponse = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role`);
     const caller = (await callerResponse.json())?.[0];
     if (!caller) return res.status(403).json({ error: 'Perfil do usuário não encontrado.' });
@@ -45,8 +48,10 @@ module.exports = async (req, res) => {
       return res.status(403).json({ error: 'Você não tem permissão para gerar esta cobrança.' });
     }
 
+    stage = 'SUPABASE_STUDENT_PROFILE';
     const pr = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(studentId)}&select=id,full_name,email,phone,role`);
     const profile = (await pr.json())?.[0];
+    stage = 'SUPABASE_STUDENT';
     const sr = await sb(`/rest/v1/students?id=eq.${encodeURIComponent(studentId)}&select=id,monthly_value,due_day,status,plan`);
     const student = (await sr.json())?.[0];
     if (!profile || !student || profile.role !== 'student') return res.status(404).json({ error: 'Aluno não encontrado.' });
@@ -55,6 +60,7 @@ module.exports = async (req, res) => {
     const externalReference = `${profile.id}:${due}`;
 
     // A linha do mês corrente é a fonte de verdade; o status antigo do aluno não pode bloquear outra competência.
+    stage = 'SUPABASE_EXISTING_PAYMENT';
     const existingResponse = await sb(`/rest/v1/payments?external_reference=eq.${encodeURIComponent(externalReference)}&select=id,status,gateway,gateway_payment_id,invoice_url,due_date,amount,method&limit=1`);
     const existing = (await existingResponse.json())?.[0];
     if (!existingResponse.ok) throw new Error('Não foi possível consultar a cobrança existente.');
@@ -64,12 +70,14 @@ module.exports = async (req, res) => {
     }
 
     const method = req.body?.method === 'card' ? 'UNDEFINED' : 'PIX';
+    stage = 'ASAAS_CUSTOMER_SEARCH';
     const search = await aa(`/customers?email=${encodeURIComponent(profile.email)}`);
     const searchData = await search.json();
     if (!search.ok) throw new Error(searchData?.errors?.[0]?.description || 'Não foi possível localizar o cliente no Asaas.');
 
     let customerId = searchData?.data?.[0]?.id;
     if (!customerId) {
+      stage = 'ASAAS_CUSTOMER_CREATE';
       const cr = await aa('/customers', {
         method: 'POST',
         body: JSON.stringify({ name: profile.full_name, email: profile.email, mobilePhone: profile.phone || undefined, externalReference: profile.id })
@@ -79,6 +87,7 @@ module.exports = async (req, res) => {
       customerId = cd.id;
     }
 
+    stage = 'ASAAS_PAYMENT_SEARCH';
     const remoteSearch = await aa(`/payments?externalReference=${encodeURIComponent(externalReference)}`);
     const remoteData = await remoteSearch.json();
     if (!remoteSearch.ok) throw new Error(remoteData?.errors?.[0]?.description || 'Não foi possível consultar cobranças no Asaas.');
@@ -93,6 +102,7 @@ module.exports = async (req, res) => {
         status: 'paid', gateway: 'asaas', gateway_payment_id: payment.id,
         external_reference: externalReference, invoice_url: payment.invoiceUrl || null, updated_at: new Date().toISOString()
       };
+      stage = 'SUPABASE_PAYMENT_SYNC';
       const saved = existing?.id
         ? await sb(`/rest/v1/payments?id=eq.${encodeURIComponent(existing.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(sync) })
         : await sb('/rest/v1/payments', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ student_id: profile.id, due_date: due, ...sync }) });
@@ -101,6 +111,7 @@ module.exports = async (req, res) => {
     }
 
     if (!payment) {
+      stage = 'ASAAS_PAYMENT_CREATE';
       const charge = await aa('/payments', {
         method: 'POST',
         body: JSON.stringify({ customer: customerId, billingType: method, value: Number(student.monthly_value), dueDate: due, description: `Dunamis Fit — ${student.plan}`, externalReference })
@@ -116,9 +127,11 @@ module.exports = async (req, res) => {
     };
 
     if (existing?.id) {
+      stage = 'SUPABASE_PAYMENT_UPDATE';
       const saved = await sb(`/rest/v1/payments?id=eq.${encodeURIComponent(existing.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(paymentRow) });
       if (!saved.ok) throw new Error('A cobrança foi criada no Asaas, mas não foi registrada no histórico do Dunamis Fit.');
     } else {
+      stage = 'SUPABASE_PAYMENT_INSERT';
       const saved = await sb('/rest/v1/payments', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(paymentRow) });
       if (!saved.ok) {
         const conflict = await sb(`/rest/v1/payments?external_reference=eq.${encodeURIComponent(externalReference)}&select=id`);
@@ -129,7 +142,20 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({ ok: true, reused: Boolean(existing || remoteData?.data?.[0]), paymentId: payment.id, invoiceUrl: payment.invoiceUrl || null, billingType: payment.billingType || method, dueDate: due });
   } catch (error) {
-    console.error('Dunamis Fit Asaas create:', error);
-    return res.status(400).json({ error: error?.message || 'Não foi possível iniciar o pagamento.' });
+    const message = String(error?.message || 'Erro desconhecido');
+    // Diagnóstico seguro: não registra tokens, chaves nem dados pessoais.
+    console.error('Dunamis Fit Asaas create failed', {
+      stage,
+      name: error?.name || 'Error',
+      message: message.slice(0, 240),
+      asaasHost: (() => { try { return new URL(asaasBase).host; } catch { return 'URL_INVALIDA'; } })()
+    });
+    const isFetchFailure = /fetch failed|network|timeout|ENOTFOUND|ECONN|EAI_AGAIN/i.test(message);
+    return res.status(isFetchFailure ? 502 : 400).json({
+      error: isFetchFailure
+        ? `Falha de conexão na etapa ${stage}. Verifique a URL e o ambiente do serviço.`
+        : message,
+      stage
+    });
   }
 };
