@@ -39,7 +39,7 @@
     // Capture o valor diretamente do select do modal ativo para evitar
     // perder a seleção em formulários renderizados novamente.
     const genderEl=document.querySelector('.modal #sgender');
-    const selectedGender=String(genderEl?.selectedOptions?.[0]?.value || genderEl?.value || genderEl?.dataset?.selectedGender || '').trim();
+    const selectedGender=String(genderEl?.value || genderEl?.selectedOptions?.[0]?.value || genderEl?.dataset?.selectedGender || '').trim();
     const allowedGenders=['Feminino','Masculino','Outro','Prefiro não informar'];
     const gender=allowedGenders.includes(selectedGender) ? selectedGender : String(oldStudent?.gender||'').trim();
 
