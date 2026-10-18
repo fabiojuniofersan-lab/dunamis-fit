@@ -19,7 +19,13 @@
       const sb=window.dunamisSupabase; const sess=await sb.auth.getSession(); const token=sess.data&&sess.data.session&&sess.data.session.access_token;
       if(!token)throw new Error('Sessão expirada. Entre novamente.');
       const r=await fetch('/api/asaas-create-payment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({studentId:String(s.id),method})});
-      const d=await r.json(); if(!r.ok||!d.ok)throw new Error(d.error||'Falha ao gerar cobrança.');
+      const body=await r.text();
+      let d={};
+      try{d=body?JSON.parse(body):{};}catch{d={error:'A API retornou uma resposta inválida. Verifique se a implantação da Vercel terminou.'};}
+      if(!r.ok||!d.ok){
+        const stage=d.stage?' [Etapa: '+d.stage+']':'';
+        throw new Error((d.error||'Falha ao gerar cobrança.')+stage);
+      }
       if(d.paid){alert('O Asaas informa que esta mensalidade já foi paga; histórico sincronizado.');}
       else if(d.invoiceUrl){window.open(d.invoiceUrl,'_blank');alert('Cobrança criada. Compartilhe o link com o aluno. O status continuará pendente até confirmação do Asaas.');}
       else alert('Cobrança criada, mas não veio link de pagamento. Confira os logs antes de tentar novamente.');
