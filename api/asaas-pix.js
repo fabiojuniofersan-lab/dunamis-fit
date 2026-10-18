@@ -3,7 +3,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  const url = process.env.SUPABASE_URL;
+  const url = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const asaasKey = process.env.ASAAS_API_KEY;
   const asaasBase = (process.env.ASAAS_API_URL || 'https://api.asaas.com/v3').trim().replace(/\/+$/, '');
@@ -28,8 +28,10 @@ module.exports = async (req, res) => {
 
     stage = 'SUPABASE_PROFILE';
     const pr = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role`);
-    const profile = (await pr.json())?.[0];
-    if (!pr.ok || !profile || profile.role !== 'student') return res.status(403).json({ error: 'Somente alunos podem consultar esta cobrança.' });
+    const profileData = await pr.json();
+    if (!pr.ok) throw new Error(`Falha ao consultar perfil (HTTP ${pr.status}).`);
+    const profile = profileData?.[0];
+    if (!profile || profile.role !== 'student') return res.status(403).json({ error: 'Somente alunos podem consultar esta cobrança.' });
 
     const due = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     stage = 'SUPABASE_PAYMENT_LOOKUP';
