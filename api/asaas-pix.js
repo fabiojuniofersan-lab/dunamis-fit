@@ -6,7 +6,7 @@ module.exports = async (req, res) => {
   const url = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const asaasKey = process.env.ASAAS_API_KEY;
-  const asaasBase = (process.env.ASAAS_API_URL || 'https://api.asaas.com/v3').trim().replace(/\\/+$/, '');
+  const asaasBase = (process.env.ASAAS_API_URL || 'https://api.asaas.com/v3').trim().replace(/\/+$/, '');
   if (!token) return res.status(401).json({ error: 'Não autenticado.' });
   if (!url || !serviceKey || !asaasKey) return res.status(500).json({ error: 'Configuração do gateway ainda não foi concluída.' });
 
