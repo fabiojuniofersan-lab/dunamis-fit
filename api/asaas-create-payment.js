@@ -31,9 +31,23 @@ module.exports = async (req, res) => {
     const user = await me.json();
     if (!me.ok || !user?.id) return res.status(401).json({ error: 'Sessão inválida.' });
 
-    const pr = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=id,full_name,email,phone,role`);
+    const callerResponse = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role`);
+    const caller = (await callerResponse.json())?.[0];
+    if (!caller) return res.status(403).json({ error: 'Perfil do usuário não encontrado.' });
+
+    // O aluno pode emitir sua própria cobrança; o administrador pode emitir para um aluno selecionado.
+    const requestedStudentId = String(req.body?.studentId || '').trim();
+    let studentId = user.id;
+    if (caller.role === 'admin') {
+      if (!requestedStudentId) return res.status(400).json({ error: 'Selecione o aluno para gerar a cobrança.' });
+      studentId = requestedStudentId;
+    } else if (caller.role !== 'student' || (requestedStudentId && requestedStudentId !== user.id)) {
+      return res.status(403).json({ error: 'Você não tem permissão para gerar esta cobrança.' });
+    }
+
+    const pr = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(studentId)}&select=id,full_name,email,phone,role`);
     const profile = (await pr.json())?.[0];
-    const sr = await sb(`/rest/v1/students?id=eq.${encodeURIComponent(user.id)}&select=id,monthly_value,due_day,status,plan`);
+    const sr = await sb(`/rest/v1/students?id=eq.${encodeURIComponent(studentId)}&select=id,monthly_value,due_day,status,plan`);
     const student = (await sr.json())?.[0];
     if (!profile || !student || profile.role !== 'student') return res.status(404).json({ error: 'Aluno não encontrado.' });
 
