@@ -29,9 +29,28 @@ module.exports = async (req, res) => {
   let stage = 'SUPABASE_AUTH';
   try {
     stage = 'SUPABASE_AUTH';
-    const me = await fetch(`${url}/auth/v1/user`, { headers: { apikey: serviceKey, Authorization: `Bearer ${token}` } });
-    const user = await me.json();
-    if (!me.ok || !user?.id) return res.status(401).json({ error: 'Sessão inválida.' });
+    // Uma falha transitória de rede não deve interromper a emissão na primeira tentativa.
+    let me;
+    let authNetworkError;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        me = await fetch(`${url}/auth/v1/user`, {
+          headers: { apikey: serviceKey, Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(10000)
+        });
+        authNetworkError = null;
+        break;
+      } catch (error) {
+        authNetworkError = error;
+        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 350));
+      }
+    }
+    if (authNetworkError) throw new Error(`Supabase Auth indisponível após nova tentativa: ${authNetworkError.message || 'falha de rede'}`);
+    let user;
+    try { user = await me.json(); } catch {
+      throw new Error(`Supabase Auth retornou uma resposta inválida (HTTP ${me.status}).`);
+    }
+    if (!me.ok || !user?.id) return res.status(401).json({ error: 'Sessão inválida. Saia do aplicativo e entre novamente.', stage });
 
     stage = 'SUPABASE_CALLER_PROFILE';
     const callerResponse = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role`);
