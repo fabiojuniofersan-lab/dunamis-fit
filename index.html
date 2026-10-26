@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111111">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Dunamis Fit">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/dunamis-fit-abertura.png">
   <title>Dunamis Fit Gestão</title>
   <link rel="stylesheet" href="styles.css">
   <style>
@@ -10,6 +16,23 @@
   </style>
 </head>
 <body>
+  <div id="brand-splash" aria-label="Dunamis Fit carregando">
+    <img src="/dunamis-fit-abertura.png" alt="Dunamis Fit">
+  </div>
+  <style>
+    #brand-splash{position:fixed;inset:0;z-index:99999;background:#080808;display:flex;align-items:center;justify-content:center;opacity:1;visibility:visible;transition:opacity .35s ease,visibility .35s ease}
+    #brand-splash img{width:100%;height:100%;object-fit:cover;object-position:center}
+    #brand-splash.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
+    @media (prefers-reduced-motion:reduce){#brand-splash{transition:none}}
+  </style>
+  <script>
+    (function(){
+      var splash=document.getElementById('brand-splash');
+      var hide=function(){if(splash)splash.classList.add('is-hidden');};
+      window.addEventListener('load',function(){setTimeout(hide,900);},{once:true});
+      setTimeout(hide,2600);
+    })();
+  </script>
   <div id="app"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js?v=10"></script>
