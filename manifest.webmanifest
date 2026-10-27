@@ -9,9 +9,9 @@
   "theme_color": "#111111",
   "icons": [
     {
-      "src": "/dunamis-fit-icon.svg?v=2",
+      "src": "/dunamis-fit-abertura.png?v=3",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     }
   ]
